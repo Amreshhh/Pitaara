@@ -36,8 +36,14 @@ export const CATEGORIES = [
 // Sabme sirf 'Gold' subcategory
 export const SUBCATEGORIES = {
   earring: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
-  bali: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
-  ring: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
+  bali: [
+    { id: 'gold', label: 'Gold', chargeMod: 0 },
+    { id: 'hoops', label: 'Hoops', chargeMod: 0 },
+  ],
+  ring: [
+    { id: 'gold', label: 'Gold', chargeMod: 0 },
+    { id: 'band', label: 'Plain Ring', chargeMod: 0 },
+  ],
   choker: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
   necklace: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
   chain: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],

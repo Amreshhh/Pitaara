@@ -81,21 +81,21 @@
       <section className="relative min-h-[10vh] flex flex-col items-center justify-center overflow-hidden px-4 text-center">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
-            className={`absolute top-[-5%] left-1/2 -translate-x-1/2 w-[900px] md:w-[1200px] h-[800px] rounded-full blur-[150px] opacity-40 transition-colors duration-700 ${isDarkMode ? 'bg-cyan-800/50' : 'bg-amber-200/70'}`}
+            className={`absolute top-[-5%] left-1/2 -translate-x-1/2 w-225 md:w-300 h-200 rounded-full blur-[150px] opacity-40 transition-colors duration-700 ${isDarkMode ? 'bg-cyan-800/50' : 'bg-amber-200/70'}`}
           ></div>
           <div
-            className={`absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full blur-[100px] opacity-20 transition-colors duration-700 ${isDarkMode ? 'bg-purple-900/20' : 'bg-orange-100'}`}
+            className={`absolute bottom-0 right-0 w-100 h-100 rounded-full blur-[100px] opacity-20 transition-colors duration-700 ${isDarkMode ? 'bg-purple-900/20' : 'bg-orange-100'}`}
           ></div>
         </div>
 
         <div className="max-w-5xl mx-auto relative z-10 flex flex-col items-center">
           <div className="relative flex flex-col items-center justify-center w-full my-40">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] md:w-[550px] md:h-[550px] pointer-events-none opacity-50 dark:opacity-40">
-                <RoyalWheel />
-              </div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-87.5 h-87.5 md:w-137.5 md:h-137.5 pointer-events-none opacity-50 dark:opacity-40">
+              <RoyalWheel />
+            </div>
 
             <div
-              className={`relative z-10 w-24 h-[1px] mb-8 transition-colors duration-500 ${isDarkMode ? 'bg-gradient-to-r from-transparent via-cyan-500 to-transparent' : 'bg-gradient-to-r from-transparent via-amber-600 to-transparent'}`}
+              className={`relative z-10 w-24 h-px mb-8 transition-colors duration-500 ${isDarkMode ? 'bg-linear-to-r from-transparent via-cyan-500 to-transparent' : 'bg-linear-to-r from-transparent via-amber-600 to-transparent'}`}
             ></div>
 
             <h1 className="relative z-10 font-serif tracking-tight mb-8 leading-[1.1] text-center">
@@ -123,7 +123,7 @@
             onClick={onScrollToEstimator}
             className={`group relative px-8 py-4 rounded-full overflow-hidden transition-all shadow-xl hover:shadow-2xl ${isDarkMode ? 'bg-stone-100 text-stone-900' : 'bg-stone-900 text-stone-100'}`}
           >
-            <div className="absolute inset-0 w-full h-full opacity-0 group-hover:opacity-20 transition-opacity bg-gradient-to-r from-transparent via-stone-400 to-transparent -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] duration-1000"></div>
+            <div className="absolute inset-0 w-full h-full opacity-0 group-hover:opacity-20 transition-opacity bg-linear-to-r from-transparent via-stone-400 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full duration-1000"></div>
             <div className="relative flex items-center gap-3 font-medium tracking-wide">
               Start Estimating <ArrowDown size={18} className="group-hover:translate-y-1 transition-transform" />
             </div>
