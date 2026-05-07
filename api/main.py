@@ -31,9 +31,17 @@ client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
 db = client["jewelry_database"]
 
 # --- CORS SETUP ---
+
+# 1. Define your allowed origins here
+origins = [
+    "http://localhost:3000", # For your local React/Next.js testing
+    "https://your-frontend-project-name.vercel.app", # Replace with your LIVE frontend Vercel URL
+]
+
+# 2. Update the middleware to use the origins list
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins, # Changed from ["*"] to origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

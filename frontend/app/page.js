@@ -108,7 +108,8 @@ export default function App() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/categories');
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${baseUrl}/api/categories`);
         if (response.ok) {
           const data = await response.json();
           const incoming = data?.categories;

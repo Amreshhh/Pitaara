@@ -38,8 +38,8 @@ export const useGoldCalculator = (inputs, trigger = 0) => {
           metal_type: 'Gold',
           weight_range: isCoin ? String(inputs.weight) : null,
         };
-
-        const response = await fetch('http://localhost:8000/api/calculate-price', {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${baseUrl}/api/calculate-price`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),

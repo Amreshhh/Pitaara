@@ -25,7 +25,8 @@ export const useLiveRates = () => {
   useEffect(() => {
     const fetchRates = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/live-rates'); 
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${baseUrl}/api/live-rates`); 
         if (!response.ok) throw new Error('Network response was not ok');
         
         const data = await response.json();
