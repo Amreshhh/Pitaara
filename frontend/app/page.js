@@ -77,7 +77,7 @@ const DEFAULT_INPUTS = {
 };
 
 export default function App() {
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [inputs, setInputs] = useState(DEFAULT_INPUTS);
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [calcTrigger, setCalcTrigger] = useState(0);
