@@ -4,7 +4,7 @@ import time
 from typing import Dict, Optional
 from curl_cffi.requests import AsyncSession
 from selectolax.parser import HTMLParser
-from scraper_config import TANISHQ_22K_FALLBACK, CANDERE_24K_FALLBACK
+from frontend.api.scraper_config import TANISHQ_22K_FALLBACK, CANDERE_24K_FALLBACK
 
 # Helper function to prevent servers from sending cached/stale data
 def get_no_cache_headers():
