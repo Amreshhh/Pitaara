@@ -84,7 +84,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
       setError('');
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${baseUrl}api/brand-summary`, {
+        const response = await fetch(`${baseUrl}/api/brand-summary`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: abortController.signal,

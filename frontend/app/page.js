@@ -18,7 +18,10 @@ import { getThemeStyles } from '@/lib/utils';
 // File ke top par ise replace kar dijiye
 const normalizeCategoryId = (value) => {
   if (typeof value !== 'string') return ''; // Agar string nahi hai toh empty return kar do
-  return value.toLowerCase().replace(/\s+/g, '_');
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 };
 
 const getCached24KRate = () => {
@@ -27,8 +30,9 @@ const getCached24KRate = () => {
     const raw = window.localStorage.getItem('cached_gold_rates');
     if (!raw) return 14620;
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return 14620;
-    const tanishq = parsed.find((item) => item?.Brand === 'Tanishq');
+    const rates = Array.isArray(parsed) ? parsed : parsed?.rates;
+    if (!Array.isArray(rates)) return 14620;
+    const tanishq = rates.find((item) => item?.Brand === 'Tanishq');
     const rate = Number(tanishq?.['24K']);
     return Number.isFinite(rate) && rate > 0 ? rate : 14620;
   } catch {
