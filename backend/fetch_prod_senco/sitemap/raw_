@@ -1,0 +1,16 @@
+ return {
+                "Brand": "Senco",
+                "product_url": product_url,
+                "sku": sku,
+                # "title": item.get("title", ""),
+                "type": final_type, 
+                "purity": breakup.get("purity", "Unknown"),
+                "net_weight": breakup.get("net_weight", 0.0),
+                # "gross_weight": breakup.get("gross_weight", 0.0),
+                "making_charges_percentage": breakup.get("making_charge_percentage", "N/A"),
+                # "stone_charges": breakup.get("stone_charges", 0.0),
+                # "platinum_weight": breakup.get("platinum_weight", 0.0),
+                # "platinum_purity": breakup.get("platinum_purity", "Unknown"),
+                "extraction_date": get_formatted_date(),
+                "category": item.get("category", "Other"),
+            }

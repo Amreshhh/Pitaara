@@ -1,0 +1,173 @@
+  'use client';
+
+  import { ArrowDown } from 'lucide-react';
+  import { getThemeStyles } from '@/lib/utils';
+  import { FeatureRow } from './FeatureRow';
+
+  const RoyalWheel = () => (
+    <svg viewBox="0 0 500 500" className="w-full h-full animate-[spin_60s_linear_infinite]">
+      <defs>
+        <linearGradient id="gold-base" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#bf953f" />
+          <stop offset="25%" stopColor="#fcf6ba" />
+          <stop offset="50%" stopColor="#b38728" />
+          <stop offset="75%" stopColor="#fbf5b7" />
+          <stop offset="100%" stopColor="#aa771c" />
+        </linearGradient>
+        <linearGradient id="gold-dark" x1="100%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#593b0b" />
+          <stop offset="50%" stopColor="#b38728" />
+          <stop offset="100%" stopColor="#301f05" />
+        </linearGradient>
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+
+        <g id="petal">
+          <path d="M 250 180 Q 265 200 250 215 Q 235 200 250 180" fill="url(#gold-base)" stroke="url(#gold-dark)" strokeWidth="1.5" />
+        </g>
+
+        <g id="spoke">
+          <rect x="244" y="55" width="12" height="135" fill="url(#gold-base)" stroke="url(#gold-dark)" strokeWidth="1" />
+          <path d="M 235 190 L 265 190 L 255 160 L 245 160 Z" fill="url(#gold-dark)" />
+          <path d="M 235 55 L 265 55 L 252 80 L 248 80 Z" fill="url(#gold-dark)" />
+          <rect x="240" y="95" width="20" height="10" fill="url(#gold-dark)" rx="3" />
+          <rect x="242" y="125" width="16" height="6" fill="url(#gold-dark)" rx="2" />
+          <rect x="240" y="150" width="20" height="8" fill="url(#gold-dark)" rx="3" />
+          <circle cx="250" cy="100" r="3" fill="url(#gold-base)" />
+        </g>
+      </defs>
+
+      <circle cx="250" cy="250" r="240" fill="none" stroke="url(#gold-dark)" strokeWidth="16" filter="url(#glow)" />
+      <circle cx="250" cy="250" r="228" fill="none" stroke="url(#gold-base)" strokeWidth="10" />
+      <circle cx="250" cy="250" r="212" fill="none" stroke="url(#gold-base)" strokeWidth="12" strokeDasharray="4 16" strokeLinecap="round" />
+      <circle cx="250" cy="250" r="202" fill="none" stroke="url(#gold-dark)" strokeWidth="4" />
+      <circle cx="250" cy="250" r="192" fill="none" stroke="url(#gold-base)" strokeWidth="6" />
+
+      {Array.from({ length: 16 }).map((_, i) => (
+        <use key={`spoke-${i}`} href="#spoke" transform={`rotate(${i * 22.5} 250 250)`} />
+      ))}
+
+      <circle cx="250" cy="250" r="75" fill="url(#gold-dark)" filter="url(#glow)" />
+      <circle cx="250" cy="250" r="68" fill="url(#gold-base)" />
+
+      {Array.from({ length: 16 }).map((_, i) => (
+        <use key={`petal-${i}`} href="#petal" transform={`rotate(${i * 22.5} 250 250)`} />
+      ))}
+
+      <circle cx="250" cy="250" r="48" fill="url(#gold-dark)" />
+      <circle cx="250" cy="250" r="40" fill="url(#gold-base)" />
+      <circle cx="250" cy="250" r="30" fill="none" stroke="url(#gold-dark)" strokeWidth="4" strokeDasharray="3 3" />
+      <circle cx="250" cy="250" r="20" fill="url(#gold-dark)" />
+      <circle cx="250" cy="250" r="12" fill="url(#gold-base)" />
+      <circle cx="250" cy="250" r="4" fill="url(#gold-dark)" />
+    </svg>
+  );
+
+  export const HeroSection = ({
+    isDarkMode,
+    onScrollToEstimator,
+    liveRates = [],
+    loading = false,
+    heading = 'Pitaara',
+    eyebrow = 'by',
+    brandLine = 'Om-Rani',
+    subheading = 'Real-time gold estimation across India\'s top jewellers. No hidden charges, just pure value clarity.',
+  }) => {
+    const styles = getThemeStyles(isDarkMode);
+
+    return (
+      <section className="relative min-h-[10vh] flex flex-col items-center justify-center overflow-hidden px-4 text-center">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div
+            className={`absolute top-[-5%] left-1/2 -translate-x-1/2 w-[900px] md:w-[1200px] h-[800px] rounded-full blur-[150px] opacity-40 transition-colors duration-700 ${isDarkMode ? 'bg-cyan-800/50' : 'bg-amber-200/70'}`}
+          ></div>
+          <div
+            className={`absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full blur-[100px] opacity-20 transition-colors duration-700 ${isDarkMode ? 'bg-purple-900/20' : 'bg-orange-100'}`}
+          ></div>
+        </div>
+
+        <div className="max-w-5xl mx-auto relative z-10 flex flex-col items-center">
+          <div className="relative flex flex-col items-center justify-center w-full my-40">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] md:w-[550px] md:h-[550px] pointer-events-none opacity-50 dark:opacity-40">
+                <RoyalWheel />
+              </div>
+
+            <div
+              className={`relative z-10 w-24 h-[1px] mb-8 transition-colors duration-500 ${isDarkMode ? 'bg-gradient-to-r from-transparent via-cyan-500 to-transparent' : 'bg-gradient-to-r from-transparent via-amber-600 to-transparent'}`}
+            ></div>
+
+            <h1 className="relative z-10 font-serif tracking-tight mb-8 leading-[1.1] text-center">
+              <span
+                className="text-8xl md:text-9xl leading-none block mb-6 drop-shadow-xl"
+                style={{ fontFamily: "'Samarkan', sans-serif", fontWeight: 'normal' }}
+              >
+                {heading}
+              </span>
+              <span className={`text-3xl md:text-3xl italic font-light drop-shadow-md ${isDarkMode ? 'text-amber-100/90' : 'text-amber-800/90'}`}>
+                {eyebrow}
+              </span>
+              <span className={`text-3xl md:text-5xl italic font-light drop-shadow-md ${isDarkMode ? 'text-amber-100/90' : 'text-amber-800/90'}`}>
+                {' '}
+                {brandLine}
+              </span>
+            </h1>
+          </div>
+
+          <p className={`text-lg md:text-xl max-w-2xl mb-10 font-light leading-relaxed relative z-10 ${styles.textMuted}`}>
+            {subheading}
+          </p>
+
+          <button
+            onClick={onScrollToEstimator}
+            className={`group relative px-8 py-4 rounded-full overflow-hidden transition-all shadow-xl hover:shadow-2xl ${isDarkMode ? 'bg-stone-100 text-stone-900' : 'bg-stone-900 text-stone-100'}`}
+          >
+            <div className="absolute inset-0 w-full h-full opacity-0 group-hover:opacity-20 transition-opacity bg-gradient-to-r from-transparent via-stone-400 to-transparent -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] duration-1000"></div>
+            <div className="relative flex items-center gap-3 font-medium tracking-wide">
+              Start Estimating <ArrowDown size={18} className="group-hover:translate-y-1 transition-transform" />
+            </div>
+          </button>
+
+          <div className={`mt-24 w-screen -mx-4 overflow-hidden border-y backdrop-blur-md shadow-2xl transition-all duration-500 ${isDarkMode ? 'bg-stone-900/40 border-stone-800 shadow-black/50' : 'bg-white/60 border-stone-200 shadow-stone-200/50'}`}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left whitespace-nowrap">
+                <thead className={`text-sm uppercase tracking-widest ${isDarkMode ? 'bg-stone-950/80 text-stone-500' : 'bg-stone-100/80 text-stone-500'}`}>
+                  <tr>
+                    <th className="px-8 py-5 font-medium">Brand</th>
+                    <th className="px-8 py-5 font-medium text-right  text-amber-600 dark:text-amber-500">24K</th>
+                    <th className="px-8 py-5 font-medium text-right">22K</th>
+                    <th className="px-8 py-5 font-medium text-right">18K</th>
+                    <th className="px-8 py-5 font-medium text-right">14K</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y font-mono text-lg ${isDarkMode ? 'divide-stone-800/60' : 'divide-stone-200/60'}`}>
+                  {loading ? (
+                    <tr>
+                      <td colSpan="5" className="px-8 py-10 text-center animate-pulse">
+                        <span className={styles.textMuted}>Fetching live gold rates...</span>
+                      </td>
+                    </tr>
+                  ) : (
+                    liveRates.map((rateData, index) => (
+                      <tr key={index} className={`transition-colors hover:${isDarkMode ? 'bg-stone-800/40' : 'bg-white/80'}`}>
+                        <td className="px-8 py-6 font-serif text-xl font-medium">{rateData.Brand || 'Unknown'}</td>
+                        <td className={`px-8 py-6 text-right text-xl font-bold ${isDarkMode ? 'text-amber-400' : 'text-amber-700'}`}>
+                          ₹{rateData['24K']?.toLocaleString('en-IN') || 'N/A'}
+                        </td>
+                        <td className="px-8 py-6 text-right">₹{rateData['22K']?.toLocaleString('en-IN') || 'N/A'}</td>
+                        <td className="px-8 py-6 text-right">₹{rateData['18K']?.toLocaleString('en-IN') || 'N/A'}</td>
+                        <td className="px-8 py-6 text-right">₹{rateData['14K']?.toLocaleString('en-IN') || 'N/A'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <FeatureRow isDarkMode={isDarkMode} />
+        </div>
+      </section>
+    );
+  };
