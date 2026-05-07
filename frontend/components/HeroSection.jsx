@@ -1,7 +1,7 @@
   'use client';
 
   import { ArrowDown } from 'lucide-react';
-  import { getThemeStyles } from '@/lib/utils';
+  import { getThemeStyles } from '../lib/utils';
   import { FeatureRow } from './FeatureRow';
 
   const RoyalWheel = () => (

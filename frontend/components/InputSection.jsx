@@ -1,9 +1,8 @@
 'use client';
 
 import { ChevronDown, Gem, Filter } from 'lucide-react';
-import { PURITY_FACTORS, CATEGORIES, SUBCATEGORIES, COIN_WEIGHT_OPTIONS } from '@/lib/constants';
-import { getThemeStyles } from '@/lib/utils';
-
+import { PURITY_FACTORS, CATEGORIES, SUBCATEGORIES, COIN_WEIGHT_OPTIONS } from '../lib/constants';
+import { getThemeStyles } from '../lib/utils';
 export const InputSection = ({ inputs, onInputChange, isDarkMode, categories = CATEGORIES, onFind, inputsDirty = false, isCalculating = false }) => {
   const styles = getThemeStyles(isDarkMode);
   const isCoinCategory = inputs.category === 'coin';
