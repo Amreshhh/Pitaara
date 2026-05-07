@@ -373,7 +373,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                             border: isDarkMode ? '1px solid #44403c' : '1px solid #d6d3d1',
                             borderRadius: 12,
                           }}
-                          formatter={(value, key) => [`${value}${key === 'weight' ? 'g' : '%'}`, key === 'weight' ? 'Weight' : 'MC']}
+                          formatter={(value, key) => [`${value}${key === 'weight' ? 'g' : ''}`, key === 'weight' ? 'Weight' : 'MC']}
                           labelFormatter={(_, payload) => `SKU: ${payload?.[0]?.payload?.sku || 'NA'}`}
                         />
                         <Scatter
@@ -437,14 +437,14 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
               </div>
 
               <div className={`rounded-2xl border p-4 ${styles.borderColor}`}>
-                <h4 className="text-lg font-semibold mb-3">Top 5 Deals (Lowest MC%)</h4>
+                <h4 className="text-lg font-semibold mb-3">Top 5 Deals (Lowest Making charge)</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className={`border-b ${styles.borderColor}`}>
                         <th className="text-left py-2">SKU</th>
                         <th className="text-left py-2">Net Weight</th>
-                        <th className="text-left py-2">MC %</th>
+                        <th className="text-left py-2">Making charge %</th>
                       </tr>
                     </thead>
                     <tbody>

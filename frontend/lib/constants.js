@@ -31,7 +31,6 @@ export const CATEGORIES = [
   { id: 'mangalsutra', label: 'Mangalsutra', baseChargeMod: 0.06 },
   { id: 'nose_pin', label: 'Nose Pin', baseChargeMod: 0.02 },
   { id: 'nath', label: 'Nath', baseChargeMod: 0.05 },
-  { id: 'payal', label: 'Payal', baseChargeMod: 0.04 },
 ];
 
 // Sabme sirf 'Gold' subcategory
@@ -51,7 +50,9 @@ export const SUBCATEGORIES = {
   mangalsutra: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
   nose_pin: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
   nath: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
-  payal: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
+  maang_tikka: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
+  coin_pendant: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
+  watch: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],  
 };
 
 export const BRANDS = [

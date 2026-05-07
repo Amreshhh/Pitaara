@@ -11,10 +11,13 @@ import traceback
 
 # Live rates scraping imports
 from curl_cffi.requests import AsyncSession
-from frontend.api.live_rates import fetch_tanishq, fetch_malabar, fetch_senco, fetch_candere
 
-# 🔥 Cache Manager (for cron job & live rates caching)
-from frontend.api.cache_manager import lifespan, GOLD_CACHE
+try:
+    from live_rates import fetch_tanishq, fetch_malabar, fetch_senco, fetch_candere
+    from cache_manager import lifespan, GOLD_CACHE
+except ImportError:
+    from api.live_rates import fetch_tanishq, fetch_malabar, fetch_senco, fetch_candere
+    from api.cache_manager import lifespan, GOLD_CACHE
 
 # Load environment variables
 load_dotenv()

@@ -3,7 +3,11 @@ import time
 from contextlib import asynccontextmanager
 from curl_cffi.requests import AsyncSession
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from frontend.api.live_rates import fetch_tanishq, fetch_malabar, fetch_senco, fetch_candere, print_beautiful_console
+
+try:
+    from live_rates import fetch_tanishq, fetch_malabar, fetch_senco, fetch_candere, print_beautiful_console
+except ImportError:
+    from api.live_rates import fetch_tanishq, fetch_malabar, fetch_senco, fetch_candere, print_beautiful_console
 
 # ==========================================
 # GLOBAL CACHE (Stored in RAM for entire day)
