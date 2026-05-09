@@ -416,10 +416,9 @@ async def get_brand_summary(req: BrandSummaryRequest):
                 continue
 
             points.append({
-                "sku": _extract_sku(doc),
+                "verification_link": _extract_product_url(doc),
                 "weight": round(weight_val, 2),
                 "mc": round(making, 2),
-                "verification_link": _extract_product_url(doc)
             })
 
         points.sort(key=lambda x: (x["mc"], abs(x["weight"] - req.weight)))
