@@ -104,7 +104,7 @@ async def lifespan(app):
     scheduler = AsyncIOScheduler()
     
     # Schedule to run every day at 12:00 PM (Noon)
-    scheduler.add_job(fetch_and_cache_rates, 'cron', hour=12, minute=0)
+    scheduler.add_job(fetch_and_cache_rates, 'cron', hour=3, minute=25)
     scheduler.start()
     print("📅 Scheduler activated - Daily update scheduled at 12:00 PM (Noon)")
     
