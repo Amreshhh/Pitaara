@@ -51,7 +51,18 @@ async def fetch_tanishq(session):
             rate_22k = TANISHQ_22K_FALLBACK
 
         # 🚀 THE MATH CALCULATIONS
-        rate_22k=rate_22k*10
+
+        # 1. Safely count the digits (ignoring any decimals)
+        num_digits = len(str(int(rate_22k)))
+
+        # 2. Standardize to a 5-digit rate (price per 10 grams)
+        if num_digits == 6:
+            rate_22k = rate_22k / 10
+        elif num_digits == 4:
+            rate_22k = rate_22k * 10
+        # If it's already 5 digits, it does nothing and proceeds perfectly!
+
+        # 3. Calculate other purities based on the standardized 22k rate
         rate_24k = int(round(rate_22k * (24.0 / 22.0)))
         rate_18k = int(round(rate_24k * (18.0 / 24.0)))
         rate_14k = int(round(rate_24k * (14.0 / 24.0)))
