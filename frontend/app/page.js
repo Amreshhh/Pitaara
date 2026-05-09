@@ -8,6 +8,7 @@ import {
   InputSection,
   BrandGrid,
   BrandModal,
+  FeedbackSection,
   Disclaimer,
 } from '@/components';
 import { useLiveRates } from '@/hooks/useLiveRates';
@@ -267,6 +268,8 @@ export default function App() {
             purity={inputs.purity}
             category={inputs.category}
           />
+
+          <FeedbackSection isDarkMode={isDarkMode} />
 
           <Disclaimer isDarkMode={isDarkMode} />
         </main>

@@ -6,4 +6,5 @@ export { InputSection } from './InputSection';
 export { BrandCard } from './BrandCard';
 export { BrandGrid } from './BrandGrid';
 export { BrandModal } from './BrandModal';
+export { FeedbackSection } from './FeedbackSection';
 export { Disclaimer } from './Disclaimer';
