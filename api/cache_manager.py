@@ -54,7 +54,7 @@ async def fetch_and_cache_rates():
                         fetched_map[brand_name] = res
 
                 # Brands we expect (preserve ordering)
-                brands_order = ["Tanishq", "Malabar", "Senco", "Candere"]
+                brands_order = ["Tanishq", "Malabar", "Senco", "Kalyan"]
 
                 # Build new_rates preserving prior cached entries for brands that failed
                 prior_rates = { (r.get("Brand") if r else None): r for r in GOLD_CACHE.get("rates", []) }
@@ -104,7 +104,7 @@ async def lifespan(app):
     scheduler = AsyncIOScheduler()
     
     # Schedule to run every day at 12:00 PM (Noon)
-    scheduler.add_job(fetch_and_cache_rates, 'cron', hour=15, minute=49)
+    scheduler.add_job(fetch_and_cache_rates, 'cron', hour=15, minute=50)
     scheduler.start()
     print("📅 Scheduler activated - Daily update scheduled at 12:00 PM (Noon)")
     

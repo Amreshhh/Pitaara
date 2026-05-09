@@ -205,6 +205,8 @@ async def fetch_candere(session):
         rates['18K'] = int(round(base_24k_rate * (18.0 / 24.0)))
         rates['14K'] = int(round(base_24k_rate * (14.0 / 24.0)))
 
+        # Rename Candere to Kalyan for consistency with brand names used in calculations
+        rates['Brand'] = 'Kalyan'
         return rates
     except Exception as e:
         print(f"⚠️ Candere Error: {e}")

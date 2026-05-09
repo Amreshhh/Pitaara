@@ -57,11 +57,12 @@ export const useLiveRates = () => {
         throw new Error('Invalid live rates row');
       }
 
-      const brand = rate.Brand === 'Candere' ? 'Kalyan(Candere)' : rate.Brand;
-      const normalized = { ...rate, Brand: brand };
+      // Handle both old "Candere" and new "Kalyan" brand names (backward compatibility)
+      const brandName = rate.Brand === 'Candere' ? 'Kalyan' : rate.Brand;
+      const normalized = { ...rate, Brand: brandName };
       const hasAnyNumericRate = ['24K', '22K', '18K', '14K'].some((key) => Number.isFinite(Number(normalized[key])));
 
-      if (!brand || !hasAnyNumericRate) {
+      if (!brandName || !hasAnyNumericRate) {
         throw new Error('Unable to parse live rate values');
       }
 
