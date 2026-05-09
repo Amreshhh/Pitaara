@@ -443,7 +443,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                   <table className="w-full text-sm">
                     <thead>
                       <tr className={`border-b ${styles.borderColor}`}>
-                        <th className="text-left py-2">SKU</th>
+                        <th className="text-left py-2">Verification Link</th>
                         <th className="text-left py-2">Net Weight</th>
                         <th className="text-left py-2">Making charge %</th>
                       </tr>
@@ -451,8 +451,8 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                     <tbody>
                       {topDeals.length ? (
                         topDeals.map((deal) => (
-                          <tr key={`${deal.sku}-${deal.weight}-${deal.mc}`} className={`border-b ${styles.borderColor}`}>
-                            <td className="py-2 pr-3 font-medium">{deal.sku}</td>
+                          <tr key={`${deal.verification_link}-${deal.weight}-${deal.mc}`} className={`border-b ${styles.borderColor}`}>
+                            <td className="py-2 pr-3 font-medium">{deal.verification_link}</td>
                             <td className="py-2 pr-3">{deal.weight}g</td>
                             <td className="py-2 text-emerald-500 font-semibold">{deal.mc}%</td>
                           </tr>
