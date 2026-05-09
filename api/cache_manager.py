@@ -104,9 +104,12 @@ async def lifespan(app):
     scheduler = AsyncIOScheduler()
     
     # Schedule to run every day at 12:00 PM (Noon)
-    scheduler.add_job(fetch_and_cache_rates, 'cron', hour=15, minute=50)
+    # Note: Time is relative to server timezone
+    # - Local (IST): 12:00 PM IST
+    # - Vercel (UTC): 12:00 PM UTC (set via vercel.json cron instead)
+    scheduler.add_job(fetch_and_cache_rates, 'cron', hour=12, minute=0)
     scheduler.start()
-    print("📅 Scheduler activated - Daily update scheduled at 12:00 PM (Noon)")
+    print("📅 Scheduler activated - Daily update scheduled at 12:00 PM server time (IST on local, UTC on Vercel)")
     
     yield  # Server runs here
     

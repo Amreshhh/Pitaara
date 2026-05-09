@@ -270,7 +270,8 @@ async def get_live_rates():
     Returns cached live rates.
     Cache is updated:
     - Once on server startup (immediate)
-    - Daily at 12:00 PM (via APScheduler cron job)
+    - Daily at 12:00 PM IST (6:30 AM UTC) (via APScheduler cron job)
+    - Via manual /api/cron/update-rates endpoint (Vercel cron trigger)
     
     Benefits:
     - Instant response (no scraping delays)
@@ -283,6 +284,46 @@ async def get_live_rates():
         "last_updated": GOLD_CACHE["last_updated"],
         "rates": GOLD_CACHE["rates"]
     }
+
+
+# CRON ENDPOINT: Manual trigger for cache update (Called by Vercel Cron)
+@app.get("/api/cron/update-rates")
+async def update_rates_cron():
+    """
+    🔄 Manual endpoint to trigger cache update.
+    
+    Vercel Cron automatically calls this endpoint at scheduled time.
+    Schedule (IST): Daily at 12:00 PM (6:30 AM UTC)
+    Schedule (UTC): 0 30 6 * * * (6:30 AM UTC = 12:00 PM IST)
+    
+    Can also be called manually for testing or on-demand updates.
+    """
+    try:
+        print("\n🔄 [CRON JOB] Triggered: Updating Live Rates via Vercel Cron...")
+        
+        # Import the cache update function
+        try:
+            from cache_manager import fetch_and_cache_rates
+        except ImportError:
+            from api.cache_manager import fetch_and_cache_rates
+        
+        # Execute the cache update
+        await fetch_and_cache_rates()
+        
+        return {
+            "status": "success",
+            "message": "Cache updated successfully via Cron Job",
+            "last_updated": GOLD_CACHE["last_updated"],
+            "cache_status": GOLD_CACHE["cache_status"],
+            "rates_count": len(GOLD_CACHE.get("rates", []))
+        }
+    except Exception as e:
+        print(f"❌ Cron job failed: {str(e)}")
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "message": f"Cache update failed: {str(e)}"
+        }
 
 
 def _resolve_cached_rate(live_rates, purity):

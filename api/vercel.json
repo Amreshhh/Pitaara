@@ -10,5 +10,11 @@
       "src": "/(.*)",
       "dest": "main.py"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/update-rates",
+      "schedule": "30 6 * * *"
+    }
   ]
 }

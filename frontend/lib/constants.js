@@ -42,11 +42,9 @@ export const SUBCATEGORIES = {
   ring: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
   hoops_a_type_of_bali: [
     { id: 'gold', label: 'Gold', chargeMod: 0 },
-    { id: 'hoops', label: 'Hoops(a type of Bali)', chargeMod: 0 },
   ],
   band_plain_ring: [
     { id: 'gold', label: 'Gold', chargeMod: 0 },
-    { id: 'band', label: 'Band(Plain Ring)', chargeMod: 0 },
   ],
   choker: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
   necklace: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
