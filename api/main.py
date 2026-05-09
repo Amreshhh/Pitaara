@@ -217,6 +217,16 @@ def _extract_sku(doc):
     return "NA"
 
 
+def _extract_product_url(doc):
+    """Extract product URL from document for verification link"""
+    for key in ["url", "product_url", "link", "product_link", "verification_url"]:
+        if doc.get(key):
+            url = str(doc.get(key)).strip()
+            if url and (url.startswith("http://") or url.startswith("https://")):
+                return url
+    return None
+
+
 async def get_brand_products_in_elastic_range(
     brand_name: str,
     category: str,
@@ -408,7 +418,8 @@ async def get_brand_summary(req: BrandSummaryRequest):
             points.append({
                 "sku": _extract_sku(doc),
                 "weight": round(weight_val, 2),
-                "mc": round(making, 2)
+                "mc": round(making, 2),
+                "verification_link": _extract_product_url(doc)
             })
 
         points.sort(key=lambda x: (x["mc"], abs(x["weight"] - req.weight)))
