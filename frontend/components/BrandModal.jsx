@@ -452,7 +452,13 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                       {topDeals.length ? (
                         topDeals.map((deal) => (
                           <tr key={`${deal.verification_link}-${deal.weight}-${deal.mc}`} className={`border-b ${styles.borderColor}`}>
-                            <td className="py-2 pr-3 font-medium">{deal.verification_link}</td>
+                            <td className="py-2 pr-3 font-medium">
+                              <a 
+                              href={deal.verification_link} 
+                              target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                               View Link
+                              </a>
+                              </td>
                             <td className="py-2 pr-3">{deal.weight}g</td>
                             <td className="py-2 text-emerald-500 font-semibold">{deal.mc}%</td>
                           </tr>
