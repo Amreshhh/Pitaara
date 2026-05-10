@@ -3,10 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 import asyncio
+import smtplib
+import ssl
 import os
 import math
 import motor.motor_asyncio
 from dotenv import load_dotenv
+from email.message import EmailMessage
 import traceback
 
 # Live rates scraping imports
@@ -62,6 +65,12 @@ class BrandSummaryRequest(BaseModel):
     weight_range: Optional[str] = None
     purity: str
     category: str
+
+
+class FeedbackRequest(BaseModel):
+    name: str
+    contact: str
+    issue: str
 
 
 def _parse_weight_range(weight_range: Optional[str]):
@@ -225,6 +234,36 @@ def _extract_product_url(doc):
             if url and (url.startswith("http://") or url.startswith("https://")):
                 return url
     return None
+
+
+def _send_feedback_email(name: str, contact: str, issue: str):
+    recipient_email = os.getenv("FEEDBACK_TO_EMAIL", "amupayments@gmail.com")
+    smtp_user = os.getenv("GMAIL_SMTP_USER", recipient_email)
+    smtp_password = os.getenv("GMAIL_SMTP_APP_PASSWORD")
+
+    if not smtp_password:
+        raise HTTPException(
+            status_code=500,
+            detail="Missing GMAIL_SMTP_APP_PASSWORD environment variable",
+        )
+
+    message = EmailMessage()
+    message["Subject"] = f"Pitaara feedback from {name}"
+    message["From"] = smtp_user
+    message["To"] = recipient_email
+    if "@" in contact:
+        message["Reply-To"] = contact
+
+    message.set_content(
+        f"Name: {name}\n"
+        f"Gmail / Number: {contact}\n\n"
+        f"Issue:\n{issue}\n"
+    )
+
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+        server.login(smtp_user, smtp_password)
+        server.send_message(message)
 
 
 async def get_brand_products_in_elastic_range(
@@ -477,6 +516,30 @@ async def get_brand_summary(req: BrandSummaryRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error generating brand summary: {str(e)}")
 
+
+@app.post("/api/feedback")
+@app.post("/feedback")
+async def submit_feedback(req: FeedbackRequest):
+    name = req.name.strip()
+    contact = req.contact.strip()
+    issue = req.issue.strip()
+
+    if not name or not contact or not issue:
+        raise HTTPException(status_code=400, detail="All feedback fields are required")
+
+    try:
+        await asyncio.to_thread(_send_feedback_email, name, contact, issue)
+        return {
+            "status": "success",
+            "message": "Feedback sent successfully",
+            "recipient": os.getenv("FEEDBACK_TO_EMAIL", "amupayments@gmail.com"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to send feedback: {str(e)}")
+
 # 4. MASTER CALCULATION API (Eating the Frog!)
 @app.post("/api/calculate-price")
 async def calculate_price(req: CalculatorRequest):
@@ -589,3 +652,178 @@ async def calculate_price(req: CalculatorRequest):
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error calculating price: {str(e)}")
+
+
+# # ============ 🔥 INVENTORY MATRIX HEATMAP ENDPOINT ============
+# import json
+# from pathlib import Path
+
+# # Load inventory matrix data at startup
+# INVENTORY_DATA_PATH = Path(__file__).parent.parent / ".archive" / "backend" / "inventory_matrix_data.json"
+
+# def load_inventory_data():
+#     """Load inventory matrix data from JSON file"""
+#     try:
+#         if INVENTORY_DATA_PATH.exists():
+#             with open(INVENTORY_DATA_PATH, 'r') as f:
+#                 data = json.load(f)
+#                 print(f"✅ Loaded {len(data)} inventory items from {INVENTORY_DATA_PATH}")
+#                 return data
+#         print(f"⚠️ Inventory data file not found at: {INVENTORY_DATA_PATH}")
+#         return []
+#     except Exception as e:
+#         print(f"❌ Could not load inventory data: {e}")
+#         return []
+
+# INVENTORY_DATA = load_inventory_data()
+
+
+# def get_inventory_categories_list():
+#     """Return unique inventory categories in sorted order."""
+#     return sorted(
+#         {
+#             item.get("category", "")
+#             for item in INVENTORY_DATA
+#             if item.get("category")
+#         }
+#     )
+
+# @app.get("/api/inventory-matrix/{category}")
+# async def get_inventory_matrix(category: str):
+#     """
+#     Get inventory matrix data for a specific category.
+#     Returns heatmap-ready format: { weight_ranges, purities, matrix }
+#     """
+#     try:
+#         import urllib.parse
+        
+#         # Decode URL-encoded category
+#         requested_category = urllib.parse.unquote(category).strip()
+        
+#         print(f"📊 Fetching inventory matrix for category: '{requested_category}'")
+#         print(f"   Total items in INVENTORY_DATA: {len(INVENTORY_DATA)}")
+        
+#         available_categories = get_inventory_categories_list()
+#         print(f"   Available categories: {available_categories[:10]}")
+
+#         if not INVENTORY_DATA:
+#             print("❌ INVENTORY_DATA is empty")
+#             raise HTTPException(status_code=404, detail="Inventory data is not available")
+
+#         resolved_category = requested_category
+#         if not resolved_category or resolved_category.lower() == 'undefined':
+#             resolved_category = available_categories[0] if available_categories else None
+#             print(f"⚠️  Missing/undefined category, using default: '{resolved_category}'")
+
+#         if not resolved_category:
+#             raise HTTPException(status_code=404, detail="No inventory categories available")
+        
+#         category_lookup = {item.lower(): item for item in available_categories}
+#         canonical_category = category_lookup.get(resolved_category.lower(), resolved_category)
+        
+#         # Filter data by category (case-insensitive)
+#         category_data = [
+#             item for item in INVENTORY_DATA 
+#             if item.get("category", "").lower() == canonical_category.lower()
+#         ]
+        
+#         if not category_data and available_categories:
+#             fallback_category = available_categories[0]
+#             print(f"⚠️  No match for '{canonical_category}', falling back to '{fallback_category}'")
+#             canonical_category = fallback_category
+#             category_data = [
+#                 item for item in INVENTORY_DATA
+#                 if item.get("category", "").lower() == canonical_category.lower()
+#             ]
+
+#         print(f"   Matched {len(category_data)} items for category '{canonical_category}'")
+        
+#         if not category_data:
+#             print(f"❌ No items found for category: '{canonical_category}'")
+#             print(f"   All available categories: {available_categories}")
+#             raise HTTPException(status_code=404, detail=f"Category '{canonical_category}' not found. Available categories: {available_categories}")
+        
+#         # Extract unique weight ranges and purities (preserving order)
+#         weight_ranges = []
+#         purities = []
+#         seen_weights = set()
+#         seen_purities = set()
+        
+#         for item in category_data:
+#             weight = item.get("label", "")
+#             purity = item.get("purity", "")
+            
+#             if weight and weight not in seen_weights:
+#                 weight_ranges.append(weight)
+#                 seen_weights.add(weight)
+            
+#             if purity and purity not in seen_purities:
+#                 purities.append(purity)
+#                 seen_purities.add(purity)
+        
+#         print(f"   Weight ranges: {weight_ranges}")
+#         print(f"   Purities: {purities}")
+        
+#         # Create pivot matrix (weight_ranges × purities)
+#         matrix = []
+#         for weight in weight_ranges:
+#             row = []
+#             for purity in purities:
+#                 # Find product count for this weight-purity combo
+#                 item = next(
+#                     (i for i in category_data 
+#                      if i.get("label") == weight and i.get("purity") == purity),
+#                     None
+#                 )
+#                 count = item.get("product_count", 0) if item else 0
+#                 row.append(count)
+#             matrix.append(row)
+        
+#         print(f"✅ Successfully created heatmap matrix for '{canonical_category}'")
+        
+#         return {
+#             "status": "success",
+#             "category": canonical_category,
+#             "requested_category": requested_category,
+#             "weight_ranges": weight_ranges,
+#             "purities": purities,
+#             "matrix": matrix,
+#             "total_products": sum(sum(row) for row in matrix)
+#         }
+    
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         print(f"❌ Error in get_inventory_matrix: {e}")
+#         traceback.print_exc()
+#         raise HTTPException(status_code=500, detail=f"Error fetching inventory matrix: {str(e)}")
+
+
+# @app.get("/api/inventory-categories")
+# async def get_inventory_categories():
+#     """Get all unique categories from inventory data"""
+#     try:
+#         print(f"📋 Fetching all inventory categories... (Total items: {len(INVENTORY_DATA)})")
+        
+#         if not INVENTORY_DATA:
+#             print(f"⚠️ WARNING: INVENTORY_DATA is empty!")
+#             return {
+#                 "status": "success",
+#                 "categories": [],
+#                 "count": 0
+#             }
+        
+#         categories = get_inventory_categories_list()
+#         print(f"✅ Found {len(categories)} unique categories")
+#         print(f"   Categories: {categories}")
+        
+#         return {
+#             "status": "success",
+#             "categories": categories,
+#             "count": len(categories)
+#         }
+#     except Exception as e:
+#         print(f"❌ Error in get_inventory_categories: {e}")
+#         traceback.print_exc()
+#         raise HTTPException(status_code=500, detail=f"Error fetching categories: {str(e)}")
+#         raise HTTPException(status_code=500, detail=f"Error fetching categories: {str(e)}")

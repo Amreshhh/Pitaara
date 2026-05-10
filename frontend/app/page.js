@@ -9,6 +9,7 @@ import {
   BrandGrid,
   BrandModal,
   FeedbackSection,
+  InventoryHeatmap,
   Disclaimer,
 } from '@/components';
 import { useLiveRates } from '@/hooks/useLiveRates';
@@ -197,7 +198,7 @@ export default function App() {
   };
 
   return (
-    <div className={`w-full font-sans transition-colors duration-500 ${styles.bgMain} ${styles.textMain}`}>
+    <div className={`app-shell w-full font-sans transition-colors duration-500 ${styles.bgMain} ${styles.textMain}`}>
       {/* <Header
         isDarkMode={isDarkMode}
         currentRate={currentRate24K}
@@ -248,7 +249,7 @@ export default function App() {
         subheading="Real-time gold estimation across India's top jewellers. No hidden charges, just pure value clarity."
       />
 
-      <div ref={estimatorRef} className="relative z-20 w-full ">
+      <div ref={estimatorRef} className="relative z-20 w-full">
         <main className="max-w-7xl mx-auto px-4 py-12">
           <InputSection
             inputs={inputs}
@@ -268,6 +269,11 @@ export default function App() {
             purity={inputs.purity}
             category={inputs.category}
           />
+
+          {/* 🔥 Inventory Matrix Heatmap Section */}
+          {/* <div className="mt-16 sm:mt-20 pt-10 sm:pt-12 border-t border-gray-300 dark:border-gray-700">
+            <InventoryHeatmap />
+          </div> */}
 
           <FeedbackSection isDarkMode={isDarkMode} />
 
