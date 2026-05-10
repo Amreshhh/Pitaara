@@ -7,7 +7,6 @@ import smtplib
 import ssl
 import os
 import math
-import time
 import motor.motor_asyncio
 from dotenv import load_dotenv
 from email.message import EmailMessage
@@ -31,7 +30,7 @@ app = FastAPI(lifespan=lifespan)
 
 # --- DATABASE SETUP ---
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
 db = client["jewelry_database"]
 
 # --- CORS SETUP ---
@@ -72,17 +71,6 @@ class FeedbackRequest(BaseModel):
     name: str
     contact: str
     issue: str
-
-
-async def _ensure_mongo_connection():
-    try:
-        await client.admin.command("ping")
-    except Exception as error:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=503,
-            detail=f"MongoDB connection unavailable: {error}",
-        )
 
 
 def _parse_weight_range(weight_range: Optional[str]):
@@ -557,7 +545,6 @@ async def submit_feedback(req: FeedbackRequest):
 async def calculate_price(req: CalculatorRequest):
     try:
         print(f"\n📥 INCOMING REQUEST: weight={req.weight}, purity={req.purity}, type={req.jewellery_type}, weight_range={req.weight_range}")
-        await _ensure_mongo_connection()
         
         # A. Get Live Rates (from cache)
         live_rates_response = await get_live_rates()
@@ -667,240 +654,176 @@ async def calculate_price(req: CalculatorRequest):
         raise HTTPException(status_code=500, detail=f"Error calculating price: {str(e)}")
 
 
-@app.get("/api/db-health")
-async def db_health():
+# ============ 🔥 INVENTORY MATRIX HEATMAP ENDPOINT ============
+import json
+from pathlib import Path
+
+# Load inventory matrix data at startup
+INVENTORY_DATA_PATH = Path(__file__).parent.parent / ".archive" / "backend" / "inventory_matrix_data.json"
+
+def load_inventory_data():
+    """Load inventory matrix data from JSON file"""
     try:
-        await _ensure_mongo_connection()
-        return {
-            "status": "ok",
-            "mongo": "connected",
-            "database": "jewelry_database",
-            "uri_configured": bool(MONGO_URI),
+        if INVENTORY_DATA_PATH.exists():
+            with open(INVENTORY_DATA_PATH, 'r') as f:
+                data = json.load(f)
+                print(f"✅ Loaded {len(data)} inventory items from {INVENTORY_DATA_PATH}")
+                return data
+        print(f"⚠️ Inventory data file not found at: {INVENTORY_DATA_PATH}")
+        return []
+    except Exception as e:
+        print(f"❌ Could not load inventory data: {e}")
+        return []
+
+INVENTORY_DATA = load_inventory_data()
+
+
+def get_inventory_categories_list():
+    """Return unique inventory categories in sorted order."""
+    return sorted(
+        {
+            item.get("category", "")
+            for item in INVENTORY_DATA
+            if item.get("category")
         }
-    except HTTPException as exc:
-        raise exc
+    )
 
-
-# 🔥 EMERGENCY: Populate cache with fallback rates (for testing/debugging)
-@app.get("/api/bootstrap-cache")
-async def bootstrap_cache():
+@app.get("/api/inventory-matrix/{category}")
+async def get_inventory_matrix(category: str):
     """
-    🚨 DEBUG ENDPOINT: Manually populate GOLD_CACHE with fallback rates.
-    
-    Use this if:
-    - Live rate scrapers are failing
-    - Cache is empty on startup
-    - You need to test the API immediately
-    
-    This endpoint directly injects fallback rates into the cache without
-    scraping from live websites.
+    Get inventory matrix data for a specific category.
+    Returns heatmap-ready format: { weight_ranges, purities, matrix }
     """
     try:
-        from scraper_config import SCRAPER_FALLBACK_RATES
-    except ImportError:
-        from api.scraper_config import SCRAPER_FALLBACK_RATES
-    
-    # Convert fallback rates to API format (list of dicts with Brand key)
-    rates_list = []
-    for brand_name, rates in SCRAPER_FALLBACK_RATES.items():
-        # Normalize Candere -> Kalyan for consistency
-        display_brand = "Kalyan" if brand_name == "Candere" else brand_name
-        rates_list.append({
-            "Brand": display_brand,
-            "24K": rates.get("24K", 0),
-            "22K": rates.get("22K", 0),
-            "18K": rates.get("18K", 0),
-            "14K": rates.get("14K", 0),
-        })
-    
-    # Update global cache
-    GOLD_CACHE["rates"] = rates_list
-    GOLD_CACHE["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    GOLD_CACHE["cache_status"] = "bootstrapped (fallback)"
-    
-    print(f"\n✅ Cache bootstrapped with {len(rates_list)} brands")
-    for rate in rates_list:
-        print(f"   {rate['Brand']}: 24K=₹{rate['24K']}, 22K=₹{rate['22K']}, 18K=₹{rate['18K']}")
-    
-    return {
-        "status": "success",
-        "message": "Cache bootstrapped with fallback rates",
-        "rates": rates_list,
-        "cache_status": GOLD_CACHE["cache_status"],
-        "last_updated": GOLD_CACHE["last_updated"]
-    }
-
-
-# # ============ 🔥 INVENTORY MATRIX HEATMAP ENDPOINT ============
-# import json
-# from pathlib import Path
-
-# # Load inventory matrix data at startup
-# INVENTORY_DATA_PATH = Path(__file__).parent.parent / ".archive" / "backend" / "inventory_matrix_data.json"
-
-# def load_inventory_data():
-#     """Load inventory matrix data from JSON file"""
-#     try:
-#         if INVENTORY_DATA_PATH.exists():
-#             with open(INVENTORY_DATA_PATH, 'r') as f:
-#                 data = json.load(f)
-#                 print(f"✅ Loaded {len(data)} inventory items from {INVENTORY_DATA_PATH}")
-#                 return data
-#         print(f"⚠️ Inventory data file not found at: {INVENTORY_DATA_PATH}")
-#         return []
-#     except Exception as e:
-#         print(f"❌ Could not load inventory data: {e}")
-#         return []
-
-# INVENTORY_DATA = load_inventory_data()
-
-
-# def get_inventory_categories_list():
-#     """Return unique inventory categories in sorted order."""
-#     return sorted(
-#         {
-#             item.get("category", "")
-#             for item in INVENTORY_DATA
-#             if item.get("category")
-#         }
-#     )
-
-# @app.get("/api/inventory-matrix/{category}")
-# async def get_inventory_matrix(category: str):
-#     """
-#     Get inventory matrix data for a specific category.
-#     Returns heatmap-ready format: { weight_ranges, purities, matrix }
-#     """
-#     try:
-#         import urllib.parse
+        import urllib.parse
         
-#         # Decode URL-encoded category
-#         requested_category = urllib.parse.unquote(category).strip()
+        # Decode URL-encoded category
+        requested_category = urllib.parse.unquote(category).strip()
         
-#         print(f"📊 Fetching inventory matrix for category: '{requested_category}'")
-#         print(f"   Total items in INVENTORY_DATA: {len(INVENTORY_DATA)}")
+        print(f"📊 Fetching inventory matrix for category: '{requested_category}'")
+        print(f"   Total items in INVENTORY_DATA: {len(INVENTORY_DATA)}")
         
-#         available_categories = get_inventory_categories_list()
-#         print(f"   Available categories: {available_categories[:10]}")
+        available_categories = get_inventory_categories_list()
+        print(f"   Available categories: {available_categories[:10]}")
 
-#         if not INVENTORY_DATA:
-#             print("❌ INVENTORY_DATA is empty")
-#             raise HTTPException(status_code=404, detail="Inventory data is not available")
+        if not INVENTORY_DATA:
+            print("❌ INVENTORY_DATA is empty")
+            raise HTTPException(status_code=404, detail="Inventory data is not available")
 
-#         resolved_category = requested_category
-#         if not resolved_category or resolved_category.lower() == 'undefined':
-#             resolved_category = available_categories[0] if available_categories else None
-#             print(f"⚠️  Missing/undefined category, using default: '{resolved_category}'")
+        resolved_category = requested_category
+        if not resolved_category or resolved_category.lower() == 'undefined':
+            resolved_category = available_categories[0] if available_categories else None
+            print(f"⚠️  Missing/undefined category, using default: '{resolved_category}'")
 
-#         if not resolved_category:
-#             raise HTTPException(status_code=404, detail="No inventory categories available")
+        if not resolved_category:
+            raise HTTPException(status_code=404, detail="No inventory categories available")
         
-#         category_lookup = {item.lower(): item for item in available_categories}
-#         canonical_category = category_lookup.get(resolved_category.lower(), resolved_category)
+        category_lookup = {item.lower(): item for item in available_categories}
+        canonical_category = category_lookup.get(resolved_category.lower(), resolved_category)
         
-#         # Filter data by category (case-insensitive)
-#         category_data = [
-#             item for item in INVENTORY_DATA 
-#             if item.get("category", "").lower() == canonical_category.lower()
-#         ]
+        # Filter data by category (case-insensitive)
+        category_data = [
+            item for item in INVENTORY_DATA 
+            if item.get("category", "").lower() == canonical_category.lower()
+        ]
         
-#         if not category_data and available_categories:
-#             fallback_category = available_categories[0]
-#             print(f"⚠️  No match for '{canonical_category}', falling back to '{fallback_category}'")
-#             canonical_category = fallback_category
-#             category_data = [
-#                 item for item in INVENTORY_DATA
-#                 if item.get("category", "").lower() == canonical_category.lower()
-#             ]
+        if not category_data and available_categories:
+            fallback_category = available_categories[0]
+            print(f"⚠️  No match for '{canonical_category}', falling back to '{fallback_category}'")
+            canonical_category = fallback_category
+            category_data = [
+                item for item in INVENTORY_DATA
+                if item.get("category", "").lower() == canonical_category.lower()
+            ]
 
-#         print(f"   Matched {len(category_data)} items for category '{canonical_category}'")
+        print(f"   Matched {len(category_data)} items for category '{canonical_category}'")
         
-#         if not category_data:
-#             print(f"❌ No items found for category: '{canonical_category}'")
-#             print(f"   All available categories: {available_categories}")
-#             raise HTTPException(status_code=404, detail=f"Category '{canonical_category}' not found. Available categories: {available_categories}")
+        if not category_data:
+            print(f"❌ No items found for category: '{canonical_category}'")
+            print(f"   All available categories: {available_categories}")
+            raise HTTPException(status_code=404, detail=f"Category '{canonical_category}' not found. Available categories: {available_categories}")
         
-#         # Extract unique weight ranges and purities (preserving order)
-#         weight_ranges = []
-#         purities = []
-#         seen_weights = set()
-#         seen_purities = set()
+        # Extract unique weight ranges and purities (preserving order)
+        weight_ranges = []
+        purities = []
+        seen_weights = set()
+        seen_purities = set()
         
-#         for item in category_data:
-#             weight = item.get("label", "")
-#             purity = item.get("purity", "")
+        for item in category_data:
+            weight = item.get("label", "")
+            purity = item.get("purity", "")
             
-#             if weight and weight not in seen_weights:
-#                 weight_ranges.append(weight)
-#                 seen_weights.add(weight)
+            if weight and weight not in seen_weights:
+                weight_ranges.append(weight)
+                seen_weights.add(weight)
             
-#             if purity and purity not in seen_purities:
-#                 purities.append(purity)
-#                 seen_purities.add(purity)
+            if purity and purity not in seen_purities:
+                purities.append(purity)
+                seen_purities.add(purity)
         
-#         print(f"   Weight ranges: {weight_ranges}")
-#         print(f"   Purities: {purities}")
+        print(f"   Weight ranges: {weight_ranges}")
+        print(f"   Purities: {purities}")
         
-#         # Create pivot matrix (weight_ranges × purities)
-#         matrix = []
-#         for weight in weight_ranges:
-#             row = []
-#             for purity in purities:
-#                 # Find product count for this weight-purity combo
-#                 item = next(
-#                     (i for i in category_data 
-#                      if i.get("label") == weight and i.get("purity") == purity),
-#                     None
-#                 )
-#                 count = item.get("product_count", 0) if item else 0
-#                 row.append(count)
-#             matrix.append(row)
+        # Create pivot matrix (weight_ranges × purities)
+        matrix = []
+        for weight in weight_ranges:
+            row = []
+            for purity in purities:
+                # Find product count for this weight-purity combo
+                item = next(
+                    (i for i in category_data 
+                     if i.get("label") == weight and i.get("purity") == purity),
+                    None
+                )
+                count = item.get("product_count", 0) if item else 0
+                row.append(count)
+            matrix.append(row)
         
-#         print(f"✅ Successfully created heatmap matrix for '{canonical_category}'")
+        print(f"✅ Successfully created heatmap matrix for '{canonical_category}'")
         
-#         return {
-#             "status": "success",
-#             "category": canonical_category,
-#             "requested_category": requested_category,
-#             "weight_ranges": weight_ranges,
-#             "purities": purities,
-#             "matrix": matrix,
-#             "total_products": sum(sum(row) for row in matrix)
-#         }
+        return {
+            "status": "success",
+            "category": canonical_category,
+            "requested_category": requested_category,
+            "weight_ranges": weight_ranges,
+            "purities": purities,
+            "matrix": matrix,
+            "total_products": sum(sum(row) for row in matrix)
+        }
     
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         print(f"❌ Error in get_inventory_matrix: {e}")
-#         traceback.print_exc()
-#         raise HTTPException(status_code=500, detail=f"Error fetching inventory matrix: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in get_inventory_matrix: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error fetching inventory matrix: {str(e)}")
 
 
-# @app.get("/api/inventory-categories")
-# async def get_inventory_categories():
-#     """Get all unique categories from inventory data"""
-#     try:
-#         print(f"📋 Fetching all inventory categories... (Total items: {len(INVENTORY_DATA)})")
+@app.get("/api/inventory-categories")
+async def get_inventory_categories():
+    """Get all unique categories from inventory data"""
+    try:
+        print(f"📋 Fetching all inventory categories... (Total items: {len(INVENTORY_DATA)})")
         
-#         if not INVENTORY_DATA:
-#             print(f"⚠️ WARNING: INVENTORY_DATA is empty!")
-#             return {
-#                 "status": "success",
-#                 "categories": [],
-#                 "count": 0
-#             }
+        if not INVENTORY_DATA:
+            print(f"⚠️ WARNING: INVENTORY_DATA is empty!")
+            return {
+                "status": "success",
+                "categories": [],
+                "count": 0
+            }
         
-#         categories = get_inventory_categories_list()
-#         print(f"✅ Found {len(categories)} unique categories")
-#         print(f"   Categories: {categories}")
+        categories = get_inventory_categories_list()
+        print(f"✅ Found {len(categories)} unique categories")
+        print(f"   Categories: {categories}")
         
-#         return {
-#             "status": "success",
-#             "categories": categories,
-#             "count": len(categories)
-#         }
-#     except Exception as e:
-#         print(f"❌ Error in get_inventory_categories: {e}")
-#         traceback.print_exc()
-#         raise HTTPException(status_code=500, detail=f"Error fetching categories: {str(e)}")
-#         raise HTTPException(status_code=500, detail=f"Error fetching categories: {str(e)}")
+        return {
+            "status": "success",
+            "categories": categories,
+            "count": len(categories)
+        }
+    except Exception as e:
+        print(f"❌ Error in get_inventory_categories: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error fetching categories: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching categories: {str(e)}")

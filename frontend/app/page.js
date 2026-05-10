@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
+  ThemeToggle,
   Header,
   HeroSection,
   InputSection,
@@ -16,10 +17,9 @@ import { useGoldCalculator } from '@/hooks/useGoldCalculator';
 import { CATEGORIES, SUBCATEGORIES, COIN_WEIGHT_OPTIONS } from '@/lib/constants';
 import { getThemeStyles } from '@/lib/utils';
 
-const DEFAULT_RATE_24K = 14620;
-
+// File ke top par ise replace kar dijiye
 const normalizeCategoryId = (value) => {
-  if (typeof value !== 'string') return '';
+  if (typeof value !== 'string') return ''; // Agar string nahi hai toh empty return kar do
   return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
@@ -27,18 +27,18 @@ const normalizeCategoryId = (value) => {
 };
 
 const getCached24KRate = () => {
-  if (typeof window === 'undefined') return DEFAULT_RATE_24K;
+  if (typeof window === 'undefined') return 14620;
   try {
     const raw = window.localStorage.getItem('cached_gold_rates');
-    if (!raw) return DEFAULT_RATE_24K;
+    if (!raw) return 14620;
     const parsed = JSON.parse(raw);
     const rates = Array.isArray(parsed) ? parsed : parsed?.rates;
-    if (!Array.isArray(rates)) return DEFAULT_RATE_24K;
+    if (!Array.isArray(rates)) return 14620;
     const tanishq = rates.find((item) => item?.Brand === 'Tanishq');
     const rate = Number(tanishq?.['24K']);
-    return Number.isFinite(rate) && rate > 0 ? rate : DEFAULT_RATE_24K;
+    return Number.isFinite(rate) && rate > 0 ? rate : 14620;
   } catch {
-    return DEFAULT_RATE_24K;
+    return 14620;
   }
 };
 
@@ -79,7 +79,7 @@ const DEFAULT_INPUTS = {
   purity: '22K',
   category: 'chain',
   subcategory: 'gold',
-  rate: DEFAULT_RATE_24K,
+  rate: getCached24KRate(),
 };
 
 export default function App() {
@@ -101,14 +101,14 @@ export default function App() {
   const displayCategories = apiCategories || CATEGORIES;
 
   // Header ke liye 24K rate from the latest cached live data
-  const currentRate24K = liveRates?.find((r) => r.Brand === 'Tanishq')?.['24K'] ?? inputs.rate ?? 0;
+  const currentRate24K = liveRates?.find((r) => r.Brand === 'Tanishq')?.['24K'] ?? null;
 
+  // On first load, update DEFAULT_INPUTS.rate to use cached 24K rate
   useEffect(() => {
-    const cachedRate = getCached24KRate();
-    if (cachedRate && cachedRate !== DEFAULT_RATE_24K) {
-      setInputs((prev) => (prev.rate === DEFAULT_RATE_24K ? { ...prev, rate: cachedRate } : prev));
+    if (currentRate24K && inputs.rate === DEFAULT_INPUTS.rate) {
+      setInputs((prev) => ({ ...prev, rate: currentRate24K }));
     }
-  }, []);
+  }, [currentRate24K]);
 
   // Fetch categories from API
   useEffect(() => {
@@ -198,11 +198,13 @@ export default function App() {
 
   return (
     <div id="top" className={`app-shell w-full font-sans transition-colors duration-500 pb-28 sm:pb-0 ${styles.bgMain} ${styles.textMain}`}>
-      <Header
+      {/* <Header
         isDarkMode={isDarkMode}
         currentRate={currentRate24K}
         onToggleTheme={toggleTheme}
-      />
+      /> */}
+
+      <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
 
       {/* 🔥 Cache Status Indicator */}
       <div className={`fixed bottom-4 right-4 px-3 py-2 rounded text-xs font-medium z-50 ${

@@ -1,17 +1,6 @@
 export async function GET(request) {
   try {
-    const backendUrl =
-      process.env.BACKEND_API_URL ||
-      process.env.NEXT_PUBLIC_BACKEND_API_URL ||
-      (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '');
-
-    if (!backendUrl) {
-      return Response.json(
-        { error: 'Backend API URL is not configured. Set BACKEND_API_URL on deployment.' },
-        { status: 503 }
-      );
-    }
-
+    const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const response = await fetch(`${backendUrl}/api/inventory-categories`);
     
     if (!response.ok) {

@@ -1,6 +1,4 @@
 import asyncio
-import json
-from pathlib import Path
 import time
 from contextlib import asynccontextmanager
 from curl_cffi.requests import AsyncSession
@@ -19,41 +17,6 @@ GOLD_CACHE = {
     "rates": [],
     "cache_status": "empty"
 }
-
-
-def _persist_fallback_rates(rates):
-    fallback_file = Path(__file__).with_name("live_rate_fallbacks.json")
-    payload = {"updated_at": time.strftime("%Y-%m-%d %H:%M:%S"), "rates": {}}
-
-    for rate in rates or []:
-        if not rate:
-            continue
-
-        brand_name = rate.get("Brand")
-        if brand_name == "Kalyan":
-            brand_name = "Candere"
-
-        if not brand_name:
-            continue
-
-        try:
-            payload["rates"][brand_name] = {
-                "24K": int(round(float(rate.get("24K", 0)))),
-                "22K": int(round(float(rate.get("22K", 0)))),
-                "18K": int(round(float(rate.get("18K", 0)))),
-                "14K": int(round(float(rate.get("14K", 0)))),
-            }
-        except (TypeError, ValueError):
-            continue
-
-    if not payload["rates"]:
-        return
-
-    try:
-        fallback_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        print(f"✅ Refreshed fallback rates at {fallback_file}")
-    except OSError as error:
-        print(f"⚠️ Unable to persist fallback rates: {error}")
 
 # ==========================================
 # CACHE UPDATE FUNCTION (Called by cron job)
@@ -115,7 +78,6 @@ async def fetch_and_cache_rates():
                 GOLD_CACHE["rates"] = new_rates
                 GOLD_CACHE["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
                 GOLD_CACHE["cache_status"] = "active"
-                _persist_fallback_rates(new_rates)
                 print("✅ Cache successfully updated!")
             
     except Exception as e:
@@ -135,58 +97,19 @@ async def lifespan(app):
     """
     print("\n🚀 Server Starting - Initializing Live Rates Cache...")
     
-    # FIX-3: Ensure fallback file exists on startup
-    fallback_file = Path(__file__).with_name("live_rate_fallbacks.json")
-    if not fallback_file.exists():
-        try:
-            from scraper_config import SCRAPER_FALLBACK_RATES
-            initial_payload = {
-                "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "rates": SCRAPER_FALLBACK_RATES
-            }
-            fallback_file.write_text(json.dumps(initial_payload, indent=2), encoding="utf-8")
-            print(f"✅ Created initial fallback rates file")
-        except Exception as e:
-            print(f"⚠️  Could not create initial fallback file: {e}")
-    
     # 1. Run once immediately on server startup
     await fetch_and_cache_rates()
     
-    # 2. If cache is still empty (all scrapers failed), use fallback rates
-    if not GOLD_CACHE.get("rates"):
-        print("\n⚠️  WARNING: All live rate scrapers failed!")
-        print("💾 Using fallback rates instead...")
-        
-        try:
-            from scraper_config import SCRAPER_FALLBACK_RATES
-        except ImportError:
-            from api.scraper_config import SCRAPER_FALLBACK_RATES
-        
-        # Convert fallback rates to API format
-        rates_list = []
-        for brand_name, rates in SCRAPER_FALLBACK_RATES.items():
-            display_brand = "Kalyan" if brand_name == "Candere" else brand_name
-            rates_list.append({
-                "Brand": display_brand,
-                "24K": rates.get("24K", 0),
-                "22K": rates.get("22K", 0),
-                "18K": rates.get("18K", 0),
-                "14K": rates.get("14K", 0),
-            })
-        
-        GOLD_CACHE["rates"] = rates_list
-        GOLD_CACHE["cache_status"] = "fallback"
-        print(f"   ✅ Loaded {len(rates_list)} brands from fallback rates")
-        print_beautiful_console(rates_list)
-    
-    # 3. Set up APScheduler for daily updates
+    # 2. Set up APScheduler for daily updates
     scheduler = AsyncIOScheduler()
     
-    # Schedule to run every day at 12:00 PM server time.
-    # Vercel uses the separate cron trigger in api/vercel.json.
+    # Schedule to run every day at 12:00 PM (Noon)
+    # Note: Time is relative to server timezone
+    # - Local (IST): 12:00 PM IST
+    # - Vercel (UTC): 12:00 PM UTC (set via vercel.json cron instead)
     scheduler.add_job(fetch_and_cache_rates, 'cron', hour=12, minute=0)
     scheduler.start()
-    print("📅 Scheduler activated - Daily update scheduled at 12:00 PM server time")
+    print("📅 Scheduler activated - Daily update scheduled at 12:00 PM server time (IST on local, UTC on Vercel)")
     
     yield  # Server runs here
     
