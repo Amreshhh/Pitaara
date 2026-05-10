@@ -1,5 +1,7 @@
 import asyncio
 import time
+import json
+import os
 from contextlib import asynccontextmanager
 from curl_cffi.requests import AsyncSession
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -17,6 +19,50 @@ GOLD_CACHE = {
     "rates": [],
     "cache_status": "empty"
 }
+
+# ==========================================
+# SAVE FALLBACK RATES (for when API is unavailable)
+# ==========================================
+def _save_fallback_rates(rates, updated_at):
+    """
+    Save current rates to live_rate_fallbacks.json.
+    This ensures fallback rates are always today's rates.
+    
+    Called after every successful rate fetch so that:
+    1. If backend goes down, fallback file has latest rates
+    2. Frontend can use this as secondary fallback if needed
+    """
+    try:
+        # Get the directory where this file is located
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        fallback_path = os.path.join(current_dir, "live_rate_fallbacks.json")
+        
+        # Convert rates list to a dict by brand for easy lookup
+        fallback_data = {
+            "updated_at": updated_at,
+            "rates": {}
+        }
+        
+        for rate_item in rates:
+            if rate_item and isinstance(rate_item, dict):
+                brand = rate_item.get("Brand")
+                if brand:
+                    fallback_data["rates"][brand] = {
+                        "24K": rate_item.get("24K"),
+                        "22K": rate_item.get("22K"),
+                        "18K": rate_item.get("18K"),
+                        "14K": rate_item.get("14K")
+                    }
+        
+        # Write to JSON file
+        with open(fallback_path, 'w', encoding='utf-8') as f:
+            json.dump(fallback_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"✅ Fallback rates updated: {fallback_path}")
+        return True
+    except Exception as e:
+        print(f"⚠️ Failed to save fallback rates: {str(e)}")
+        return False
 
 # ==========================================
 # CACHE UPDATE FUNCTION (Called by cron job)
@@ -79,6 +125,11 @@ async def fetch_and_cache_rates():
                 GOLD_CACHE["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
                 GOLD_CACHE["cache_status"] = "active"
                 print("✅ Cache successfully updated!")
+                
+                # 🔥 SAVE FALLBACK RATES (for backend resilience)
+                # Update fallback rates file with today's fetched rates
+                # So if API is down, fallback file has the latest rates
+                _save_fallback_rates(new_rates, GOLD_CACHE["last_updated"])
             
     except Exception as e:
         print(f"❌ Error updating cache: {str(e)}")
