@@ -48,7 +48,7 @@ export const InputSection = ({ inputs, onInputChange, isDarkMode, categories = C
               className={`flex items-center border rounded-xl overflow-hidden transition-all duration-300 group-hover:border-stone-400 ${styles.borderColor} ${styles.inputBg}`}
             >
               <input
-                  type="number"
+                type="Integer"
                 name="weight"
                 value={inputs.weight}
                 onChange={onInputChange}

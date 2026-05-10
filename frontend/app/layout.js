@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Shubh Gold - Transparent Jewellery Pricing",
+  title: "Om-Rani",
   description:
-    "Real-time gold estimation across India's top jewellers. No hidden charges, just pure value clarity.",
+    "Find the best value. Compare live gold rates and making charges across India's leading jewelry brands.",
 };
 
 // Yeh line sabse important hai Next.js ke liye!

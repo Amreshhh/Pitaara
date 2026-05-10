@@ -246,7 +246,7 @@ export default function App() {
         heading="Pitaara"
         eyebrow="by"
         brandLine="Om-Rani"
-        subheading="Real-time gold estimation across India's top jewellers. No hidden charges, just pure value clarity."
+        subheading="Find the best value. Compare live gold rates and making charges across India's leading jewelry brands."
       />
 
       <div ref={estimatorRef} className="relative z-20 w-full">
