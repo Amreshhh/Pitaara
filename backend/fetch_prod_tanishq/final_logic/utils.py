@@ -23,9 +23,9 @@ def detect_category(name_or_url):
     if any(word in lower_name for word in ['bali']):
             return "Bali"
     if any (word in lower_name for word in ['hoops','hoop']): 
-        return "Hoops(a type of Bali)"
+        return "Hoops"
     if any(word in lower_name for word in ['band']): 
-        return "Band(Plain Ring)"
+        return "Band or Plain Ring"
     if 'ring' in lower_name: return "Ring"
     if 'choker' in lower_name: return "Choker"
     if 'sitahar' in lower_name: return "Sitahaar(a type of Necklace)"

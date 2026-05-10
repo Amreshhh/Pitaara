@@ -19,8 +19,8 @@ export const CATEGORIES = [
   { id: 'earring', label: 'Earring', baseChargeMod: 0.05 },
   { id: 'bali', label: 'Bali', baseChargeMod: 0.04 },
   { id: 'ring', label: 'Ring', baseChargeMod: 0.04 },
-  { id: 'hoops_a_type_of_bali', label: 'Hoops(a type of Bali)', baseChargeMod: 0.04 },
-  { id: 'band_plain_ring', label: 'Band(Plain Ring)', baseChargeMod: 0.04 },
+  { id: 'Hoops', label: 'Hoops', baseChargeMod: 0.04 },
+  { id: 'Band or Plain Ring', label: 'Band or Plain Ring', baseChargeMod: 0.04 },
   { id: 'choker', label: 'Choker', baseChargeMod: 0.08 },
   { id: 'necklace', label: 'Necklace', baseChargeMod: 0.07 },
   { id: 'chain', label: 'Chain', baseChargeMod: 0.02 },
@@ -39,10 +39,10 @@ export const SUBCATEGORIES = {
   earring: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
   bali: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
   ring: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],
-  hoops_a_type_of_bali: [
+  Hoops: [
     { id: 'gold', label: 'Gold', chargeMod: 0 },
   ],
-  band_plain_ring: [
+  'Band or Plain Ring': [
     { id: 'gold', label: 'Gold', chargeMod: 0 },
   ],
   choker: [{ id: 'gold', label: 'Gold', chargeMod: 0 }],

@@ -7,6 +7,7 @@ import smtplib
 import ssl
 import os
 import math
+import re
 import motor.motor_asyncio
 from dotenv import load_dotenv
 from email.message import EmailMessage
@@ -80,16 +81,16 @@ def _normalize_category(frontend_category: str) -> str:
     """
     Convert frontend category IDs to database category names.
     
-    Frontend sends: 'band_plain_ring', 'hoops_a_type_of_bali'
-    Database has: 'Band(Plain Ring)', 'Hoops(a type of Bali)'
+    Frontend sends: 'Band or Plain Ring', 'Hoops'
+    Database has: 'Band or Plain Ring', 'Hoops'
     """
     if not frontend_category:
         return frontend_category
     
     # Mapping from frontend IDs to database category names
     category_map = {
-        'band_plain_ring': 'Band(Plain Ring)',
-        'hoops_a_type_of_bali': 'Hoops(a type of Bali)',
+        'Band or Plain Ring': 'Band or Plain Ring',
+        'Hoops': 'Hoops',
         # Add other mappings here if needed in future
     }
     
@@ -99,6 +100,11 @@ def _normalize_category(frontend_category: str) -> str:
     
     # Otherwise return as-is (for regular categories like 'chain', 'ring', etc.)
     return frontend_category
+
+
+def _escape_regex(text: str) -> str:
+    """Escape special regex characters for safe MongoDB regex queries."""
+    return re.escape(text)
 
 
 def _parse_weight_range(weight_range: Optional[str]):
@@ -133,6 +139,10 @@ async def get_brand_making_charges(
     """
     # 🔥 NORMALIZE CATEGORY (Frontend ID → Database Name)
     normalized_category = _normalize_category(category)
+    # 🔥 ESCAPE REGEX SPECIAL CHARACTERS (parentheses, etc.)
+    escaped_category = _escape_regex(normalized_category)
+    # 🔥 ESCAPE REGEX SPECIAL CHARACTERS (parentheses, etc.)
+    escaped_category = _escape_regex(normalized_category)
     
     collection_name = f"{brand_name.lower()}_products"
     collection = db[collection_name]
@@ -147,7 +157,7 @@ async def get_brand_making_charges(
             max_w = round(target_weight + buffer, 2)
         
         cursor = collection.find({
-            "category": {"$regex": f"^{normalized_category}$", "$options": "i"},
+            "category": {"$regex": f"^{escaped_category}$", "$options": "i"},
             "purity": purity,
             weight_field: {"$gte": min_w, "$lte": max_w},
             "type": {"$regex": "Gold", "$options": "i"}
@@ -306,6 +316,8 @@ async def get_brand_products_in_elastic_range(
 ):
     # 🔥 NORMALIZE CATEGORY (Frontend ID → Database Name)
     normalized_category = _normalize_category(category)
+    # 🔥 ESCAPE REGEX SPECIAL CHARACTERS (parentheses, etc.)
+    escaped_category = _escape_regex(normalized_category)
     
     collection_name = f"{brand_name.lower()}_products"
     collection = db[collection_name]
@@ -315,7 +327,7 @@ async def get_brand_products_in_elastic_range(
         min_w = round(target_weight - buffer, 2)
         max_w = round(target_weight + buffer, 2)
         cursor = collection.find({
-            "category": {"$regex": f"^{normalized_category}$", "$options": "i"},
+            "category": {"$regex": f"^{escaped_category}$", "$options": "i"},
             "purity": purity,
             weight_field: {"$gte": min_w, "$lte": max_w},
             "type": {"$regex": "Gold", "$options": "i"}
@@ -326,7 +338,7 @@ async def get_brand_products_in_elastic_range(
     if explicit_range:
         min_w, max_w = explicit_range
         cursor = collection.find({
-            "category": {"$regex": f"^{normalized_category}$", "$options": "i"},
+            "category": {"$regex": f"^{escaped_category}$", "$options": "i"},
             "purity": purity,
             weight_field: {"$gte": min_w, "$lte": max_w},
             "type": {"$regex": "Gold", "$options": "i"}
@@ -442,11 +454,11 @@ def get_categories():
         { "id": "mangalsutra", "label": "Mangalsutra" },
         { "id": "nose_pin", "label": "Nose Pin" },
         { "id": "nath", "label": "Nath" },
-        { "id": "Hoops(a type of Bali)", "label": "Hoops(a type of Bali)" },
+        { "id": "Hoops", "label": "Hoops" },
         { "id": "maang_tikka", "label": "Maang Tikka" },
         { "id": "watch", "label": "Watch" },
-        { "id": "Coin pendant", "label": "Coin pendant" },
-        { "id": "Band(Plain Ring)", "label": "Band(Plain Ring)" },
+        { "id": "coin_pendant", "label": "Coin Pendant" },
+        { "id": "Band or Plain Ring", "label": "Band or Plain Ring" },
     ]
     return {
         "status": "success",
