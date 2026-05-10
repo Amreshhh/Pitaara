@@ -198,11 +198,11 @@ export default function App() {
 
   return (
     <div id="top" className={`app-shell w-full font-sans transition-colors duration-500 pb-28 sm:pb-0 ${styles.bgMain} ${styles.textMain}`}>
-      {/* <Header
+      <Header
         isDarkMode={isDarkMode}
         currentRate={currentRate24K}
         onToggleTheme={toggleTheme}
-      /> */}
+      />
 
       <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
 
