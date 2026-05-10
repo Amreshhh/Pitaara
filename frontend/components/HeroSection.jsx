@@ -139,14 +139,28 @@
               ) : (
                 liveRates.map((rateData, idx) => (
                   <div key={idx} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-stone-900/60 border-stone-800' : 'bg-white border-stone-100'}`}>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-3">
                       <h3 className="font-bold text-lg">{rateData.Brand}</h3>
-                      <div className={`font-bold text-amber-600 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>₹{rateData['24K']?.toLocaleString('en-IN') || 'N/A'}</div>
+                      <span className={`text-[11px] uppercase tracking-[0.14em] ${styles.textMuted}`}>Per 10g</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 mt-3 text-sm text-stone-600">
-                      <div className="flex justify-between"><span>22K</span><span className="font-medium">₹{rateData['22K']?.toLocaleString('en-IN') || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span>18K</span><span className="font-medium">₹{rateData['18K']?.toLocaleString('en-IN') || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span>14K</span><span className="font-medium">₹{rateData['14K']?.toLocaleString('en-IN') || 'N/A'}</span></div>
+
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className={`rounded-xl border px-3 py-2 ${isDarkMode ? 'border-stone-800 bg-stone-950/40' : 'border-stone-200 bg-stone-50/80'}`}>
+                        <div className={`text-[10px] uppercase tracking-[0.14em] ${styles.textMuted}`}>24K</div>
+                        <div className={`mt-1 font-semibold ${isDarkMode ? 'text-amber-400' : 'text-amber-700'}`}>₹{rateData['24K']?.toLocaleString('en-IN') || 'N/A'}</div>
+                      </div>
+                      <div className={`rounded-xl border px-3 py-2 ${isDarkMode ? 'border-stone-800 bg-stone-950/40' : 'border-stone-200 bg-stone-50/80'}`}>
+                        <div className={`text-[10px] uppercase tracking-[0.14em] ${styles.textMuted}`}>22K</div>
+                        <div className="mt-1 font-semibold">₹{rateData['22K']?.toLocaleString('en-IN') || 'N/A'}</div>
+                      </div>
+                      <div className={`rounded-xl border px-3 py-2 ${isDarkMode ? 'border-stone-800 bg-stone-950/40' : 'border-stone-200 bg-stone-50/80'}`}>
+                        <div className={`text-[10px] uppercase tracking-[0.14em] ${styles.textMuted}`}>18K</div>
+                        <div className="mt-1 font-semibold">₹{rateData['18K']?.toLocaleString('en-IN') || 'N/A'}</div>
+                      </div>
+                      <div className={`rounded-xl border px-3 py-2 ${isDarkMode ? 'border-stone-800 bg-stone-950/40' : 'border-stone-200 bg-stone-50/80'}`}>
+                        <div className={`text-[10px] uppercase tracking-[0.14em] ${styles.textMuted}`}>14K</div>
+                        <div className="mt-1 font-semibold">₹{rateData['14K']?.toLocaleString('en-IN') || 'N/A'}</div>
+                      </div>
                     </div>
                   </div>
                 ))
