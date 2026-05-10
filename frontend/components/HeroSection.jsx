@@ -141,7 +141,7 @@
                   <div key={idx} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-stone-900/60 border-stone-800' : 'bg-white border-stone-100'}`}>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-bold text-lg">{rateData.Brand}</h3>
-                      <span className={`text-[11px] uppercase tracking-[0.14em] ${styles.textMuted}`}>Per 10g</span>
+                      <span className={`text-[11px] uppercase tracking-[0.14em] ${styles.textMuted}`}>Per 1g</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-sm">
