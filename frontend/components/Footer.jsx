@@ -7,8 +7,8 @@ export default function Footer() {
 
   return (
     <footer className="w-full border-t bg-white dark:bg-stone-900 dark:border-stone-700 mt-12">
-      <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col md:flex-row items-center- justify-between gap-4">
-        <div className="text-sm-center text-stone-700 dark:text-stone-300">© {year} Om-Rani. All rights reserved.</div>
+      <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col md:flex-row items-center justify-between gap-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+        <div className="text-sm text-center md:text-left text-stone-700 dark:text-stone-300">© {year} Om-Rani. All rights reserved.</div>
 
         <div className="flex items-center gap-6">
           <nav className="flex gap-4 text-sm">

@@ -143,7 +143,7 @@ export const InputSection = ({ inputs, onInputChange, isDarkMode, categories = C
           type="button"
           onClick={onFind}
           disabled={isCalculating}
-          className={`inline-flex items-center justify-center w-full sm:w-auto md:w-56 min-h-[44px] gap-2 px-6 py-3 rounded-xl active:scale-95 text-white font-semibold shadow transition-transform duration-150 disabled:opacity-75 disabled:cursor-not-allowed ${
+          className={`inline-flex items-center justify-center w-full sm:w-auto md:w-56 min-h-11 gap-2 px-6 py-3 rounded-xl active:scale-95 text-white font-semibold shadow transition-transform duration-150 disabled:opacity-75 disabled:cursor-not-allowed ${
             isCalculating
               ? 'bg-amber-600'
               : inputsDirty

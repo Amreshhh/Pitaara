@@ -114,8 +114,7 @@ export default function App() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${baseUrl}/api/categories`);
+        const response = await fetch('/api/inventory-categories');
         if (response.ok) {
           const data = await response.json();
           const incoming = data?.categories;
@@ -198,7 +197,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app-shell w-full font-sans transition-colors duration-500 ${styles.bgMain} ${styles.textMain}`}>
+    <div id="top" className={`app-shell w-full font-sans transition-colors duration-500 pb-28 sm:pb-0 ${styles.bgMain} ${styles.textMain}`}>
       {/* <Header
         isDarkMode={isDarkMode}
         currentRate={currentRate24K}
@@ -249,7 +248,7 @@ export default function App() {
         subheading="Find the best value. Compare live gold rates and making charges across India's leading jewelry brands."
       />
 
-      <div ref={estimatorRef} className="relative z-20 w-full">
+      <div id="estimator" ref={estimatorRef} className="relative z-20 w-full">
         <main className="max-w-7xl mx-auto px-4 py-12">
           <InputSection
             inputs={inputs}

@@ -83,8 +83,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
       setLoading(true);
       setError('');
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${baseUrl}/api/brand-summary`, {
+        const response = await fetch('/api/brand-summary', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: abortController.signal,
@@ -194,23 +193,26 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
 
   // Derive the lowest making charge percentage (for display as percent)
   const mcPercentage = (computedBreakdown.makingPercent * 100).toFixed(1);
+  const compactSummaryLabel = isCoinCategory && selectedRange
+    ? `${selectedRange.min}g-${selectedRange.max}g`
+    : `${targetWeight}g`;
 
   if (!hasBrand) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-sm animate-in fade-in duration-300">
       <div
-        className={`rounded-3xl shadow-2xl w-full max-w-6xl overflow-hidden animate-in zoom-in-95 duration-300 border ${styles.bgMain} ${styles.borderColor}`}
+        className={`rounded-3xl shadow-2xl w-full max-w-none sm:max-w-6xl max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-300 border ${styles.bgMain} ${styles.borderColor}`}
       >
-        <div className="relative p-8 overflow-hidden border-b border-stone-800/70">
+        <div className="relative p-5 sm:p-8 overflow-hidden border-b border-stone-800/70">
           <div className={`absolute inset-0 bg-linear-to-br opacity-20 ${selectedBrand.accentColor}`}></div>
-          <div className="relative z-10 flex justify-between items-start">
+          <div className="relative z-10 flex justify-between items-start gap-4">
             <div>
-              <h3 className="font-serif font-medium text-3xl mb-1">{selectedBrand.name} Summary</h3>
+              <h3 className="font-serif font-medium text-2xl sm:text-3xl mb-1">{selectedBrand.name} Summary</h3>
               <p className={`text-sm tracking-wide ${styles.textMuted}`}>
-                Target {isCoinCategory && selectedRange ? `${selectedRange.min}g-${selectedRange.max}g` : `${targetWeight}g`}, {queryContext.purity}, {queryContext.category}
+                Target {compactSummaryLabel}, {queryContext.purity}, {queryContext.category}
               </p>
             </div>
             <button
@@ -225,7 +227,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
           </div>
         </div>
 
-        <div className="px-8 pb-8 pt-6 space-y-6 max-h-[78vh] overflow-y-auto">
+        <div className="px-4 sm:px-8 pb-8 pt-6 space-y-6 max-h-[78vh] overflow-y-auto">
           {loading ? (
             <div className={`rounded-2xl border p-8 text-sm ${styles.borderColor} ${styles.textMuted}`}>
               Loading brand summary...
@@ -240,7 +242,81 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
 
           {!loading && !error ? (
             <>
-              <div className={`rounded-2xl border overflow-hidden ${styles.borderColor}`}>
+              <div className="sm:hidden space-y-4">
+                <div className={`rounded-2xl border p-4 ${styles.borderColor}`}>
+                  <div className={`text-[11px] uppercase tracking-[0.25em] mb-1 ${styles.textMuted}`}>Estimate Slip</div>
+                  <div className="flex items-end justify-between gap-4">
+                    <div>
+                      <p className="text-lg font-semibold">{selectedBrand.name}</p>
+                      <p className={`text-sm ${styles.textMuted}`}>{compactSummaryLabel} · {queryContext.purity}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Grand Total</p>
+                      <p className="text-3xl font-bold">₹{computedBreakdown.total.toLocaleString('en-IN')}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`rounded-2xl border overflow-hidden ${styles.borderColor}`}>
+                  <div className={`px-4 py-3 border-b ${styles.borderColor} ${isDarkMode ? 'bg-stone-900/50' : 'bg-stone-50'}`}>
+                    <p className={`text-[11px] uppercase tracking-[0.25em] ${styles.textMuted}`}>Breakdown</p>
+                  </div>
+                  <div className="divide-y" >
+                    <div className={`p-4 flex items-center justify-between ${styles.borderColor}`}>
+                      <span className="font-medium">Gold Value</span>
+                      <span className="font-semibold">₹{computedBreakdown.goldValue.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className={`p-4 flex items-center justify-between ${isDarkMode ? 'bg-stone-500/5' : 'bg-stone-500/10'}`}>
+                      <span className="font-medium">Making Charges</span>
+                      <span className="font-semibold text-rose-500">₹{computedBreakdown.makingCharges.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="p-4 flex items-center justify-between">
+                      <span className="font-medium">Sub Total</span>
+                      <span className="font-semibold">₹{computedBreakdown.subtotal.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="p-4 flex items-center justify-between">
+                      <span className="font-medium">GST</span>
+                      <span className="font-semibold">₹{computedBreakdown.gst.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="p-4 flex items-center justify-between bg-amber-500/10">
+                      <span className="font-bold">Grand Total</span>
+                      <span className="font-bold text-amber-700 dark:text-amber-400">₹{computedBreakdown.total.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className={`rounded-xl border p-4 ${styles.borderColor}`}>
+                    <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Target</p>
+                    <p className="text-2xl font-semibold mt-1">{summary?.target_weight || compactSummaryLabel}</p>
+                  </div>
+                  <div className={`rounded-xl border p-4 ${styles.borderColor}`}>
+                    <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Items</p>
+                    <p className="text-2xl font-semibold mt-1">{summary?.total_items || 0}</p>
+                  </div>
+                </div>
+
+                <div className={`rounded-2xl border p-4 ${styles.borderColor}`}>
+                  <h4 className="text-base font-semibold mb-3">Top 5 Deals</h4>
+                  <div className="space-y-3">
+                    {topDeals.length ? topDeals.map((deal) => (
+                      <div key={`${deal.verification_link}-${deal.weight}-${deal.mc}`} className={`rounded-xl border p-3 ${styles.borderColor}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="font-medium">{deal.weight}g</p>
+                            <p className={`text-xs ${styles.textMuted}`}>{deal.mc}% making charge</p>
+                          </div>
+                          <a href={deal.verification_link} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline">
+                            View Link
+                          </a>
+                        </div>
+                      </div>
+                    )) : <p className={`text-sm ${styles.textMuted}`}>No deals available for this range.</p>}
+                  </div>
+                </div>
+              </div>
+
+              <div className={`hidden sm:block rounded-2xl border overflow-hidden ${styles.borderColor}`}>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className={`border-b ${styles.borderColor} ${isDarkMode ? 'bg-stone-900/50' : 'bg-stone-50'}`}>
@@ -319,7 +395,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
               </div>
 
               {/* Remainder of modal graphs and distributions... */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="hidden sm:grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className={`rounded-xl border p-4 ${styles.borderColor}`}>
                   <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Target</p>
                   <p className="text-2xl font-semibold mt-1">
@@ -340,7 +416,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="hidden sm:grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <div className={`rounded-2xl border p-4 ${styles.borderColor}`}>
                   <h4 className="text-lg font-semibold mb-3">Weight vs Making Charge</h4>
                   <div
@@ -437,7 +513,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                 </div>
               </div>
 
-              <div className={`rounded-2xl border p-4 ${styles.borderColor}`}>
+              <div className={`hidden sm:block rounded-2xl border p-4 ${styles.borderColor}`}>
                 <h4 className="text-lg font-semibold mb-3">Top 5 Deals (Lowest Making charge)</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
