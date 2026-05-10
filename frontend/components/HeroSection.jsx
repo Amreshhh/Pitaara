@@ -130,7 +130,31 @@
           </button>
 
           <div className={`hero-rates-panel mt-24 w-screen -mx-4 overflow-hidden border-y backdrop-blur-md shadow-2xl transition-all duration-500 ${isDarkMode ? 'bg-stone-900/40 border-stone-800 shadow-black/50' : 'bg-white/60 border-stone-200 shadow-stone-200/50'}`}>
-            <div className="overflow-x-auto">
+            {/* Mobile: stacked cards */}
+            <div className="block sm:hidden px-4 py-4 space-y-3">
+              {loading ? (
+                <div className="animate-pulse text-center py-6">
+                  <span className={styles.textMuted}>Fetching live gold rates...</span>
+                </div>
+              ) : (
+                liveRates.map((rateData, idx) => (
+                  <div key={idx} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-stone-900/60 border-stone-800' : 'bg-white border-stone-100'}`}>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-lg">{rateData.Brand}</h3>
+                      <div className={`font-bold text-amber-600 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>₹{rateData['24K']?.toLocaleString('en-IN') || 'N/A'}</div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-3 text-sm text-stone-600">
+                      <div className="flex justify-between"><span>22K</span><span className="font-medium">₹{rateData['22K']?.toLocaleString('en-IN') || 'N/A'}</span></div>
+                      <div className="flex justify-between"><span>18K</span><span className="font-medium">₹{rateData['18K']?.toLocaleString('en-IN') || 'N/A'}</span></div>
+                      <div className="flex justify-between"><span>14K</span><span className="font-medium">₹{rateData['14K']?.toLocaleString('en-IN') || 'N/A'}</span></div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="hero-rates-table w-full text-left whitespace-nowrap">
                 <thead className={`text-sm uppercase tracking-widest ${isDarkMode ? 'bg-stone-950/80 text-stone-500' : 'bg-stone-100/80 text-stone-500'}`}>
                   <tr>
