@@ -12,9 +12,14 @@ export const FeedbackSection = ({ isDarkMode }) => {
     issue: '',
   });
   const [statusMessage, setStatusMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
+    if (errorMessage) {
+      setErrorMessage('');
+    }
     setFormState((current) => ({
       ...current,
       [name]: value,
@@ -23,8 +28,56 @@ export const FeedbackSection = ({ isDarkMode }) => {
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    setStatusMessage('Thanks. Your feedback has been captured locally and is ready to be sent to your team.');
-    setFormState({ name: '', contact: '', issue: '' });
+    const name = formState.name.trim();
+    const contact = formState.contact.trim();
+    const issue = formState.issue.trim();
+
+    if (!name || !contact || !issue) {
+      setStatusMessage('');
+      setErrorMessage('Please fill all three fields before sending feedback.');
+      return;
+    }
+
+    const sendFeedback = async () => {
+      setIsSubmitting(true);
+      setStatusMessage('');
+
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const endpoints = [`${baseUrl}/api/feedback`, `${baseUrl}/feedback`];
+        let lastError = null;
+
+        for (const endpoint of endpoints) {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, contact, issue }),
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            setStatusMessage(result?.message || 'Feedback sent successfully.');
+            setFormState({ name: '', contact: '', issue: '' });
+            setErrorMessage('');
+            return;
+          }
+
+          lastError = result?.detail || 'Unable to send feedback';
+        }
+
+        throw new Error(lastError || 'Unable to send feedback');
+      } catch (error) {
+        setStatusMessage('');
+        setErrorMessage(error.message || 'Failed to send feedback.');
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    sendFeedback();
   };
 
   return (
@@ -34,9 +87,9 @@ export const FeedbackSection = ({ isDarkMode }) => {
       <div className="flex items-center gap-3 mb-8">
         <div className={`h-8 w-1 rounded-full ${isDarkMode ? 'bg-cyan-500' : 'bg-amber-500'}`}></div>
         <div>
-          <h2 className="text-2xl font-serif font-medium">Feedback</h2>
+          <h2 className="text-2xl font-serif font-medium">Help us to improve more</h2>
           <p className={`text-sm mt-1 ${styles.textMuted}`}>
-            Send us your name, contact, and issue so we can review it.
+           Any Improvements you feel. Please do fill out
           </p>
         </div>
       </div>
@@ -67,6 +120,7 @@ export const FeedbackSection = ({ isDarkMode }) => {
               value={formState.contact}
               onChange={handleChange}
               placeholder="you@gmail.com or 98xxxxxx"
+              required
               className={`w-full rounded-xl border px-4 py-3 outline-none transition-all duration-300 focus:ring-2 focus:ring-amber-400/40 ${styles.inputBg} ${styles.borderColor} ${styles.textMain}`}
             />
           </div>
@@ -82,6 +136,7 @@ export const FeedbackSection = ({ isDarkMode }) => {
             onChange={handleChange}
             placeholder="Tell us what went wrong or what we should improve."
             rows={5}
+            required
             className={`w-full rounded-2xl border px-4 py-3 outline-none transition-all duration-300 focus:ring-2 focus:ring-amber-400/40 resize-y ${styles.inputBg} ${styles.borderColor} ${styles.textMain}`}
           />
         </div>
@@ -93,12 +148,19 @@ export const FeedbackSection = ({ isDarkMode }) => {
 
           <button
             type="submit"
+            disabled={isSubmitting}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-white font-semibold shadow-lg transition-colors hover:bg-amber-600"
           >
             <Send size={18} />
-            Send Feedback
+            {isSubmitting ? 'Sending...' : 'Send Feedback'}
           </button>
         </div>
+
+        {errorMessage && (
+          <div className="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+            {errorMessage}
+          </div>
+        )}
 
         {statusMessage && (
           <div className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm ${styles.borderColor} ${styles.textMain}`}>
