@@ -6,6 +6,11 @@ import { Home, Activity, BarChart2 } from 'lucide-react';
 export default function BottomNav() {
   const [activeTab, setActiveTab] = useState('home');
 
+  const handleNavClick = (tab, selector) => {
+    setActiveTab(tab);
+    scrollToSection(selector);
+  };
+
   const scrollToSection = (selector) => {
     if (typeof window === 'undefined') return;
 
@@ -55,17 +60,17 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t pb-safe pt-2 px-6 flex justify-between items-center sm:hidden z-50 dark:bg-stone-900 dark:border-stone-700">
-      <button type="button" onClick={() => scrollToSection('#top')} className={navButtonClass(activeTab === 'home')}>
+      <button type="button" onClick={() => handleNavClick('home', '#top')} className={navButtonClass(activeTab === 'home')}>
         <Home size={22} />
         <span className="text-[10px] mt-1 font-medium">Home</span>
       </button>
 
-      <button type="button" onClick={() => scrollToSection('#estimator')} className={navButtonClass(activeTab === 'calculator')}>
+      <button type="button" onClick={() => handleNavClick('calculator', '#estimator')} className={navButtonClass(activeTab === 'calculator')}>
         <Activity size={22} />
         <span className="text-[10px] mt-1 font-medium">Calculator</span>
       </button>
 
-      <button type="button" onClick={() => scrollToSection('rates')} className={navButtonClass(activeTab === 'rates')}>
+      <button type="button" onClick={() => handleNavClick('rates', 'rates')} className={navButtonClass(activeTab === 'rates')}>
         <BarChart2 size={22} />
         <span className="text-[10px] mt-1 font-medium">Rates</span>
       </button>
