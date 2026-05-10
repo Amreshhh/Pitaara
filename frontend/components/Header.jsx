@@ -5,7 +5,7 @@ import { getThemeStyles } from '@/lib/utils';
 
 export const Header = ({ isDarkMode, currentRate = 14620, onToggleTheme }) => {
   const styles = getThemeStyles(isDarkMode);
-  const rateValue = currentRate || 15000(apx);
+  const rateValue = currentRate || 15000 ;
 
   return (
     <header
