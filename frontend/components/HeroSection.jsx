@@ -121,7 +121,7 @@
 
           <button
             onClick={onScrollToEstimator}
-            className={`group relative px-8 py-4 rounded-full overflow-hidden transition-all shadow-xl hover:shadow-2xl ${isDarkMode ? 'bg-stone-100 text-stone-900' : 'bg-stone-900 text-stone-100'}`}
+            className={`hidden sm:inline-flex group relative px-8 py-4 rounded-full overflow-hidden transition-all shadow-xl hover:shadow-2xl ${isDarkMode ? 'bg-stone-100 text-stone-900' : 'bg-stone-900 text-stone-100'}`}
           >
             <div className="absolute inset-0 w-full h-full opacity-0 group-hover:opacity-20 transition-opacity bg-linear-to-r from-transparent via-stone-400 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full duration-1000"></div>
             <div className="relative flex items-center gap-3 font-medium tracking-wide">
