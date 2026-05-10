@@ -3,8 +3,9 @@
 import { Sun, Moon } from 'lucide-react';
 import { getThemeStyles } from '@/lib/utils';
 
-export const Header = ({ isDarkMode, currentRate, onToggleTheme }) => {
+export const Header = ({ isDarkMode, currentRate = 14620, onToggleTheme }) => {
   const styles = getThemeStyles(isDarkMode);
+  const rateValue = currentRate || 15000(apx);
 
   return (
     <header
@@ -21,7 +22,7 @@ export const Header = ({ isDarkMode, currentRate, onToggleTheme }) => {
               Today&apos;s Rate (24K)
             </div>
             <div className="text-lg font-serif font-bold">
-              ₹{currentRate.toLocaleString()}{' '}
+              ₹{rateValue.toLocaleString()}{' '}
               <span className={`text-xs font-sans font-normal ${styles.textMuted}`}>/g</span>
             </div>
           </div>
