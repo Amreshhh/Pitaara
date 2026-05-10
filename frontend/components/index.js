@@ -8,4 +8,4 @@ export { BrandGrid } from './BrandGrid';
 export { BrandModal } from './BrandModal';
 export { FeedbackSection } from './FeedbackSection';
 export { Disclaimer } from './Disclaimer';
-export { default as InventoryHeatmap } from './InventoryHeatmap';
+// export { default as InventoryHeatmap } from './InventoryHeatmap.jsx';
