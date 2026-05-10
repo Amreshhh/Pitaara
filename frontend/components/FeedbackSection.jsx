@@ -82,20 +82,20 @@ export const FeedbackSection = ({ isDarkMode }) => {
 
   return (
     <section
-      className={`mt-20 rounded-3xl border shadow-2xl p-6 md:p-10 transition-all duration-500 ${styles.cardBg} ${styles.borderColor}`}
+      className={`feedback-section mt-16 sm:mt-20 rounded-3xl border shadow-2xl p-5 sm:p-6 md:p-10 transition-all duration-500 ${styles.cardBg} ${styles.borderColor}`}
     >
-      <div className="flex items-center gap-3 mb-8">
+      <div className="flex items-center gap-3 mb-6 sm:mb-8">
         <div className={`h-8 w-1 rounded-full ${isDarkMode ? 'bg-cyan-500' : 'bg-amber-500'}`}></div>
         <div>
-          <h2 className="text-2xl font-serif font-medium">Help us to improve more</h2>
+          <h2 className="text-xl sm:text-2xl font-serif font-medium">Help us to improve more</h2>
           <p className={`text-sm mt-1 ${styles.textMuted}`}>
            Any Improvements you feel. Please do fill out
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           <div>
             <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${styles.textMuted}`}>
               Name
@@ -106,7 +106,7 @@ export const FeedbackSection = ({ isDarkMode }) => {
               value={formState.name}
               onChange={handleChange}
               placeholder="Your name"
-              className={`w-full rounded-xl border px-4 py-3 outline-none transition-all duration-300 focus:ring-2 focus:ring-amber-400/40 ${styles.inputBg} ${styles.borderColor} ${styles.textMain}`}
+              className={`w-full rounded-xl border px-4 py-3 text-base outline-none transition-all duration-300 focus:ring-2 focus:ring-amber-400/40 ${styles.inputBg} ${styles.borderColor} ${styles.textMain}`}
             />
           </div>
 
@@ -121,7 +121,7 @@ export const FeedbackSection = ({ isDarkMode }) => {
               onChange={handleChange}
               placeholder="you@gmail.com or 98xxxxxx"
               required
-              className={`w-full rounded-xl border px-4 py-3 outline-none transition-all duration-300 focus:ring-2 focus:ring-amber-400/40 ${styles.inputBg} ${styles.borderColor} ${styles.textMain}`}
+              className={`w-full rounded-xl border px-4 py-3 text-base outline-none transition-all duration-300 focus:ring-2 focus:ring-amber-400/40 ${styles.inputBg} ${styles.borderColor} ${styles.textMain}`}
             />
           </div>
         </div>
@@ -137,7 +137,7 @@ export const FeedbackSection = ({ isDarkMode }) => {
             placeholder="Tell us what went wrong or what we should improve."
             rows={5}
             required
-            className={`w-full rounded-2xl border px-4 py-3 outline-none transition-all duration-300 focus:ring-2 focus:ring-amber-400/40 resize-y ${styles.inputBg} ${styles.borderColor} ${styles.textMain}`}
+            className={`w-full rounded-2xl border px-4 py-3 text-base outline-none transition-all duration-300 focus:ring-2 focus:ring-amber-400/40 resize-y ${styles.inputBg} ${styles.borderColor} ${styles.textMain}`}
           />
         </div>
 
@@ -149,7 +149,7 @@ export const FeedbackSection = ({ isDarkMode }) => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-white font-semibold shadow-lg transition-colors hover:bg-amber-600"
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-white font-semibold shadow-lg transition-colors hover:bg-amber-600"
           >
             <Send size={18} />
             {isSubmitting ? 'Sending...' : 'Send Feedback'}

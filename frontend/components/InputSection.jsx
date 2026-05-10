@@ -9,7 +9,7 @@ export const InputSection = ({ inputs, onInputChange, isDarkMode, categories = C
 
   return (
     <section
-      className={`rounded-3xl border shadow-2xl p-6 md:p-10 mb-16 transition-all duration-500 ${styles.cardBg} ${styles.borderColor}`}
+      className={`input-section rounded-3xl border shadow-2xl p-5 sm:p-6 md:p-10 mb-16 transition-all duration-500 ${styles.cardBg} ${styles.borderColor}`}
     >
       {/* Section Header */}
       <div className="flex items-center gap-3 mb-8">
@@ -18,7 +18,7 @@ export const InputSection = ({ inputs, onInputChange, isDarkMode, categories = C
       </div>
 
       {/* Input Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="input-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-8">
         {/* Weight Input */}
         <div className="group">
           <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${styles.textMuted}`}>
@@ -32,7 +32,7 @@ export const InputSection = ({ inputs, onInputChange, isDarkMode, categories = C
                 name="weight"
                 value={inputs.weight}
                 onChange={onInputChange}
-                className="w-full p-4 pr-10 outline-none font-serif text-lg bg-transparent appearance-none cursor-pointer z-10"
+                className="w-full p-3 md:p-4 pr-10 outline-none font-serif text-base md:text-lg bg-transparent appearance-none cursor-pointer z-10"
                 aria-label="Coin weight range"
               >
                 {COIN_WEIGHT_OPTIONS.map((option) => (
@@ -48,14 +48,14 @@ export const InputSection = ({ inputs, onInputChange, isDarkMode, categories = C
               className={`flex items-center border rounded-xl overflow-hidden transition-all duration-300 group-hover:border-stone-400 ${styles.borderColor} ${styles.inputBg}`}
             >
               <input
-                  type="Integer"
+                  type="number"
                 name="weight"
                 value={inputs.weight}
                 onChange={onInputChange}
                   min={0}
                   max={200}
                   step={0.01}
-                className="w-full p-4 outline-none font-serif text-lg bg-transparent"
+                className="w-full p-3 md:p-4 outline-none font-serif text-base md:text-lg bg-transparent"
                 aria-label="Gold weight in grams"
               />
               <span className={`px-4 font-medium text-sm ${styles.textMuted}`}>grams</span>
@@ -75,7 +75,7 @@ export const InputSection = ({ inputs, onInputChange, isDarkMode, categories = C
               name="purity"
               value={inputs.purity}
               onChange={onInputChange}
-              className="w-full p-4 pr-10 outline-none font-serif text-lg bg-transparent appearance-none cursor-pointer z-10"
+              className="w-full p-3 md:p-4 pr-10 outline-none font-serif text-base md:text-lg bg-transparent appearance-none cursor-pointer z-10"
               aria-label="Gold purity"
             >
               {Object.keys(PURITY_FACTORS).map((k) => (
@@ -100,7 +100,7 @@ export const InputSection = ({ inputs, onInputChange, isDarkMode, categories = C
               name="category"
               value={inputs.category}
               onChange={onInputChange}
-              className="w-full p-4 pr-10 outline-none font-serif text-lg bg-transparent appearance-none cursor-pointer z-10"
+              className="w-full p-3 md:p-4 pr-10 outline-none font-serif text-base md:text-lg bg-transparent appearance-none cursor-pointer z-10"
               aria-label="Jewellery category"
             >
               {categories.map((c) => (
@@ -138,12 +138,12 @@ export const InputSection = ({ inputs, onInputChange, isDarkMode, categories = C
           </div>
         </div>
       </div>
-      <div className="mt-6 flex justify-center">
+      <div className="input-actions mt-6 flex justify-center">
         <button
           type="button"
           onClick={onFind}
           disabled={isCalculating}
-          className={`inline-flex items-center justify-center w-44 md:w-56 gap-2 px-6 py-3 rounded-xl text-white font-semibold shadow transition-all duration-150 disabled:opacity-75 disabled:cursor-not-allowed ${
+          className={`inline-flex items-center justify-center w-full sm:w-44 md:w-56 gap-2 px-6 py-3 rounded-xl text-white font-semibold shadow transition-all duration-150 disabled:opacity-75 disabled:cursor-not-allowed ${
             isCalculating
               ? 'bg-amber-600'
               : inputsDirty

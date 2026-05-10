@@ -18,7 +18,7 @@ export const BrandCard = ({ item, isDarkMode, onSelect, weight, purity, category
   return (
     <button
       type="button"
-      className="group h-120 w-full cursor-pointer text-left"
+      className="brand-card-shell group h-120 w-full cursor-pointer text-left"
       onClick={() => onSelect(item)}
       aria-label={`View summary for ${item.name}`}
     >
@@ -27,20 +27,20 @@ export const BrandCard = ({ item, isDarkMode, onSelect, weight, purity, category
       >
         <div className={`absolute inset-0 bg-linear-to-br opacity-50 ${item.accentColor}`}></div>
 
-        <div className="relative z-10 flex flex-col h-full p-6">
+        <div className="relative z-10 flex flex-col h-full p-5 sm:p-6">
           <div className="flex-1 flex flex-col items-center justify-center text-center">
             <div
-              className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 shadow-inner ${
+              className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-inner ${
                 isDarkMode ? 'bg-stone-900' : 'bg-white'
               } ${item.iconColor}`}
             >
               <BadgeIndianRupee size={28} strokeWidth={1.5} />
             </div>
-            <h3 className="font-serif font-medium text-3xl mb-3 tracking-tight">{item.name}</h3>
+            <h3 className="font-serif font-medium text-2xl sm:text-3xl mb-2 sm:mb-3 tracking-tight">{item.name}</h3>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">{item.tagline}</p>
           </div>
 
-          <div className={`py-6 border-t flex flex-col justify-end ${isDarkMode ? 'border-stone-800' : 'border-stone-200/60'}`}>
+          <div className={`py-5 sm:py-6 border-t flex flex-col justify-end ${isDarkMode ? 'border-stone-800' : 'border-stone-200/60'}`}>
             {item.lowest_making_charge_in_range && (
               <div className={`mb-4 p-3 rounded-lg border-2 ${item.iconColor} bg-opacity-10 ${item.accentColor}`}>
                   <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${isDarkMode ? item.iconColor : styles.textMain}`}>
@@ -65,7 +65,7 @@ export const BrandCard = ({ item, isDarkMode, onSelect, weight, purity, category
             <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${styles.textMuted}`}>
               Est. Average Price
             </div>
-            <div className={`text-4xl font-sans font-normal tracking-tight ${item.metadata.isEmpty ? 'opacity-30' : ''}`}>
+            <div className={`text-3xl sm:text-4xl font-sans font-normal tracking-tight ${item.metadata.isEmpty ? 'opacity-30' : ''}`}>
               {item.metadata.isEmpty ? 'N/A' : formatCurrency(item.breakdown.total)}
             </div>
           </div>

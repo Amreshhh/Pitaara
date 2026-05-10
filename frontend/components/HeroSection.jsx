@@ -78,7 +78,7 @@
     const styles = getThemeStyles(isDarkMode);
 
     return (
-      <section className="relative min-h-[10vh] flex flex-col items-center justify-center overflow-hidden px-4 text-center">
+      <section className="hero-section relative min-h-[10vh] flex flex-col items-center justify-center overflow-hidden px-4 text-center">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
             className={`absolute top-[-5%] left-1/2 -translate-x-1/2 w-225 md:w-300 h-200 rounded-full blur-[150px] opacity-40 transition-colors duration-700 ${isDarkMode ? 'bg-cyan-800/50' : 'bg-amber-200/70'}`}
@@ -90,7 +90,7 @@
 
         <div className="max-w-5xl mx-auto relative z-10 flex flex-col items-center">
           <div className="relative flex flex-col items-center justify-center w-full my-40">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-87.5 h-87.5 md:w-137.5 md:h-137.5 pointer-events-none opacity-50 dark:opacity-40">
+            <div className="hero-wheel absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-87.5 h-87.5 md:w-137.5 md:h-137.5 pointer-events-none opacity-50 dark:opacity-40">
               <RoyalWheel />
             </div>
 
@@ -129,35 +129,35 @@
             </div>
           </button>
 
-          <div className={`mt-24 w-screen -mx-4 overflow-hidden border-y backdrop-blur-md shadow-2xl transition-all duration-500 ${isDarkMode ? 'bg-stone-900/40 border-stone-800 shadow-black/50' : 'bg-white/60 border-stone-200 shadow-stone-200/50'}`}>
+          <div className={`hero-rates-panel mt-24 w-screen -mx-4 overflow-hidden border-y backdrop-blur-md shadow-2xl transition-all duration-500 ${isDarkMode ? 'bg-stone-900/40 border-stone-800 shadow-black/50' : 'bg-white/60 border-stone-200 shadow-stone-200/50'}`}>
             <div className="overflow-x-auto">
-              <table className="w-full text-left whitespace-nowrap">
+              <table className="hero-rates-table w-full text-left whitespace-nowrap">
                 <thead className={`text-sm uppercase tracking-widest ${isDarkMode ? 'bg-stone-950/80 text-stone-500' : 'bg-stone-100/80 text-stone-500'}`}>
                   <tr>
-                    <th className="px-8 py-5 font-medium">Brand</th>
-                    <th className="px-8 py-5 font-medium text-right  text-amber-600 dark:text-amber-500">24K</th>
-                    <th className="px-8 py-5 font-medium text-right">22K</th>
-                    <th className="px-8 py-5 font-medium text-right">18K</th>
-                    <th className="px-8 py-5 font-medium text-right">14K</th>
+                    <th className="px-4 py-4 md:px-8 md:py-5 font-medium">Brand</th>
+                    <th className="px-4 py-4 md:px-8 md:py-5 font-medium text-right  text-amber-600 dark:text-amber-500">24K</th>
+                    <th className="px-4 py-4 md:px-8 md:py-5 font-medium text-right">22K</th>
+                    <th className="px-4 py-4 md:px-8 md:py-5 font-medium text-right">18K</th>
+                    <th className="px-4 py-4 md:px-8 md:py-5 font-medium text-right">14K</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y font-mono text-lg ${isDarkMode ? 'divide-stone-800/60' : 'divide-stone-200/60'}`}>
                   {loading ? (
                     <tr>
-                      <td colSpan="5" className="px-8 py-10 text-center animate-pulse">
+                      <td colSpan="5" className="px-4 py-8 md:px-8 md:py-10 text-center animate-pulse">
                         <span className={styles.textMuted}>Fetching live gold rates...</span>
                       </td>
                     </tr>
                   ) : (
                     liveRates.map((rateData, index) => (
                       <tr key={index} className={`transition-colors hover:${isDarkMode ? 'bg-stone-800/40' : 'bg-white/80'}`}>
-                        <td className="px-8 py-6 font-serif text-xl font-medium">{rateData.Brand || 'Unknown'}</td>
-                        <td className={`px-8 py-6 text-right text-xl font-bold ${isDarkMode ? 'text-amber-400' : 'text-amber-700'}`}>
+                        <td className="px-4 py-4 md:px-8 md:py-6 font-serif text-lg md:text-xl font-medium">{rateData.Brand || 'Unknown'}</td>
+                        <td className={`px-4 py-4 md:px-8 md:py-6 text-right text-lg md:text-xl font-bold ${isDarkMode ? 'text-amber-400' : 'text-amber-700'}`}>
                           ₹{rateData['24K']?.toLocaleString('en-IN') || 'N/A'}
                         </td>
-                        <td className="px-8 py-6 text-right">₹{rateData['22K']?.toLocaleString('en-IN') || 'N/A'}</td>
-                        <td className="px-8 py-6 text-right">₹{rateData['18K']?.toLocaleString('en-IN') || 'N/A'}</td>
-                        <td className="px-8 py-6 text-right">₹{rateData['14K']?.toLocaleString('en-IN') || 'N/A'}</td>
+                        <td className="px-4 py-4 md:px-8 md:py-6 text-right">₹{rateData['22K']?.toLocaleString('en-IN') || 'N/A'}</td>
+                        <td className="px-4 py-4 md:px-8 md:py-6 text-right">₹{rateData['18K']?.toLocaleString('en-IN') || 'N/A'}</td>
+                        <td className="px-4 py-4 md:px-8 md:py-6 text-right">₹{rateData['14K']?.toLocaleString('en-IN') || 'N/A'}</td>
                       </tr>
                     ))
                   )}

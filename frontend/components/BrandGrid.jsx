@@ -4,7 +4,7 @@ import { BrandCard } from './BrandCard';
 
 export const BrandGrid = ({ results, isDarkMode, onBrandSelect ,weight,purity,category}) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="brand-grid grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
       {results.map((item) => (
         <BrandCard
           key={item.id}
