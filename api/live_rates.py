@@ -44,7 +44,9 @@ async def fetch_tanishq(session):
                     if m:
                         num = m.group(1).replace(',', '')
                         if num.isdigit():
-                            rate_22k = (int(num)/10)
+                            # Extract raw number WITHOUT dividing by 10
+                            # Let normalization handle digit standardization
+                            rate_22k = int(num)
 
         if not rate_22k:
             print("⚠️ Tanishq live DOM failed. Using fallback.")
@@ -55,12 +57,18 @@ async def fetch_tanishq(session):
         # 1. Safely count the digits (ignoring any decimals)
         num_digits = len(str(int(rate_22k)))
 
-        # 2. Standardize to a 5-digit rate (price per 10 grams)
-        if num_digits == 6:
-            rate_22k = rate_22k / 10
+        # 2. Standardize to a 5-digit rate (price per 10 grams in standard range: 10000-15000)
+        # Handle all input cases robustly
+        if num_digits <= 3:
+            # Too small (likely per-gram: 139) → multiply by 100
+            rate_22k = rate_22k * 100
         elif num_digits == 4:
+            # Standard range for per-10g: 1390 → multiply by 10
             rate_22k = rate_22k * 10
-        # If it's already 5 digits, it does nothing and proceeds perfectly!
+        elif num_digits == 6:
+            # Too large (likely per-gram with extra zero) → divide by 10
+            rate_22k = rate_22k / 10
+        # If exactly 5 digits, it's already perfect - do nothing
 
         # 3. Calculate other purities based on the standardized 22k rate
         rate_24k = int(round(rate_22k * (24.0 / 22.0)))
