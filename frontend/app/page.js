@@ -235,37 +235,43 @@ export default function App() {
         </div>
       </div>
 
-      <HeroSection
-        isDarkMode={isDarkMode}
-        onScrollToEstimator={scrollToEstimator}
-        liveRates={liveRates}
-        loading={loading}
-        heading="Pitaara"
-        eyebrow="by"
-        brandLine="Om-Rani"
-        subheading="Find the best value. Compare live gold rates and making charges across India's leading jewelry brands."
-      />
+      <section id="home">
+        <HeroSection
+          isDarkMode={isDarkMode}
+          onScrollToEstimator={scrollToEstimator}
+          liveRates={liveRates}
+          loading={loading}
+          heading="Pitaara"
+          eyebrow="by"
+          brandLine="Om-Rani"
+          subheading="Find the best value. Compare live gold rates and making charges across India's leading jewelry brands."
+        />
+      </section>
 
       <div id="estimator" ref={estimatorRef} className="relative z-20 w-full">
         <main className="max-w-7xl mx-auto px-4 py-12">
-          <InputSection
-            inputs={inputs}
-            onInputChange={handleInputChange}
-            isDarkMode={isDarkMode}
-            categories={displayCategories}
-            onFind={handleFind}
-            inputsDirty={inputsDirty}
-            isCalculating={isCalculating}
-          />
+          <section id="input-section">
+            <InputSection
+              inputs={inputs}
+              onInputChange={handleInputChange}
+              isDarkMode={isDarkMode}
+              categories={displayCategories}
+              onFind={handleFind}
+              inputsDirty={inputsDirty}
+              isCalculating={isCalculating}
+            />
+          </section>
 
-          <BrandGrid
-            results={results}
-            isDarkMode={isDarkMode}
-            onBrandSelect={handleBrandSelect}
-            weight={inputs.weight}
-            purity={inputs.purity}
-            category={inputs.category}
-          />
+          <section id="results">
+            <BrandGrid
+              results={results}
+              isDarkMode={isDarkMode}
+              onBrandSelect={handleBrandSelect}
+              weight={inputs.weight}
+              purity={inputs.purity}
+              category={inputs.category}
+            />
+          </section>
 
           {/* 🔥 Inventory Matrix Heatmap Section */}
           {/* <div className="mt-16 sm:mt-20 pt-10 sm:pt-12 border-t border-gray-300 dark:border-gray-700">

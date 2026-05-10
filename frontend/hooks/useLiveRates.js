@@ -77,8 +77,8 @@ export const useLiveRates = () => {
 
       for (let attempt = 1; attempt <= 3; attempt += 1) {
         try {
-          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-          const response = await fetch(`${baseUrl}/api/live-rates`);
+          // Use Next.js API proxy route (works on mobile, handles CORS)
+          const response = await fetch('/api/live-rates');
           if (!response.ok) throw new Error('Network response was not ok');
 
           const data = await response.json();
