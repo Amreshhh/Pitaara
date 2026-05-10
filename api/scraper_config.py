@@ -1,7 +1,17 @@
-# Scraper Configuration and Fallback Rates
-# Use these values when live scraping fails for a particular brand.
+"""Scraper configuration and fallback rates.
 
-SCRAPER_FALLBACK_RATES = {
+The fallback data is refreshed automatically by the live-rate cache job and
+persisted to api/live_rate_fallbacks.json. If that file is missing or invalid,
+the hard-coded defaults below are used.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+
+DEFAULT_SCRAPER_FALLBACK_RATES = {
     "Tanishq": {
         "24K": 15200,
         "22K": 13900,
@@ -28,9 +38,51 @@ SCRAPER_FALLBACK_RATES = {
     },
 }
 
-# Fallback rates for specific purity levels when partial scraping fails
-# Tanishq Fallback: 22K rate when DOM fails
-TANISHQ_22K_FALLBACK = 13900  # Used in fetch_tanishq if DOM parsing fails
 
-# Candere Fallback: 24K rate when DOM fails
-CANDERE_24K_FALLBACK = 15200  # Used in fetch_candere if DOM parsing fails
+def _load_fallback_rates():
+    """Load fallback rates from file or return defaults.
+    
+    The file is updated daily by fetch_and_cache_rates() when live scrapers run.
+    If file doesn't exist, uses hardcoded defaults (will be created on first successful scrape).
+    """
+    fallback_file = Path(__file__).with_name("live_rate_fallbacks.json")
+    if not fallback_file.exists():
+        return DEFAULT_SCRAPER_FALLBACK_RATES
+
+    try:
+        with fallback_file.open("r", encoding="utf-8") as file_handle:
+            payload = json.load(file_handle)
+
+        rates = payload.get("rates") if isinstance(payload, dict) else None
+        if not isinstance(rates, dict):
+            return DEFAULT_SCRAPER_FALLBACK_RATES
+
+        normalized = {}
+        for brand_name, brand_rates in rates.items():
+            if not isinstance(brand_rates, dict):
+                continue
+
+            try:
+                # Handle both "Kalyan" and "Candere" keys from file
+                # Store under standardized key "Candere" for consistency
+                canonical_brand = "Candere" if brand_name in ["Kalyan", "Candere"] else brand_name
+                
+                normalized[canonical_brand] = {
+                    "24K": int(round(float(brand_rates["24K"]))),
+                    "22K": int(round(float(brand_rates["22K"]))),
+                    "18K": int(round(float(brand_rates["18K"]))),
+                    "14K": int(round(float(brand_rates["14K"]))),
+                }
+            except (KeyError, TypeError, ValueError):
+                continue
+
+        return normalized or DEFAULT_SCRAPER_FALLBACK_RATES
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return DEFAULT_SCRAPER_FALLBACK_RATES
+
+
+SCRAPER_FALLBACK_RATES = _load_fallback_rates()
+
+# Fallback rates for specific purity levels when partial scraping fails.
+TANISHQ_22K_FALLBACK = SCRAPER_FALLBACK_RATES.get("Tanishq", {}).get("22K", 13900)
+CANDERE_24K_FALLBACK = SCRAPER_FALLBACK_RATES.get("Candere", {}).get("24K", 15200)

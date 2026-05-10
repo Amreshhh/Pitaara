@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BRANDS, CATEGORIES, PURITY_FACTORS } from '@/lib/constants';
 
 const BRAND_UI = {
   'Tanishq': { accentColor: 'from-rose-500/20 to-rose-900/5', borderColor: 'border-rose-200/50 dark:border-rose-900/30', iconColor: 'text-rose-700 dark:text-rose-400', tagline: 'Premium Assurance' },
@@ -12,54 +11,6 @@ const BRAND_UI = {
 
 export const useGoldCalculator = (inputs, trigger = 0) => {
   const [results, setResults] = useState([]);
-
-  const buildFallbackResults = (numericWeight) => {
-    const purityFactor = PURITY_FACTORS[inputs.purity] || 0.916;
-    const perGramRate = Math.round((Number(inputs.rate) || 14620) * purityFactor);
-    const categoryMod = CATEGORIES.find((c) => c.id === inputs.category)?.baseChargeMod || 0;
-
-    return BRANDS.map((brand, index) => {
-      const makingPercent = Math.max(0.01, (brand.baseMaking || 0.12) + categoryMod);
-      const goldValue = Math.round(perGramRate * numericWeight);
-      const makingCharges = Math.round(goldValue * makingPercent);
-      const subtotal = goldValue + makingCharges;
-      const gst = Math.round(subtotal * 0.03);
-      const total = subtotal + gst;
-
-      const uiStyles = BRAND_UI[brand.name === 'Kalyan(Candere)' ? 'Kalyan' : brand.name] || BRAND_UI.Kalyan;
-
-      return {
-        id: index + 1,
-        name: brand.name,
-        ...uiStyles,
-        breakdown: {
-          appliedRate: perGramRate,
-          goldValue,
-          makingCharges,
-          makingPercent,
-          wastageCharges: 0,
-          subtotal,
-          gst,
-          total,
-        },
-        metadata: {
-          isEmpty: false,
-          count: 0,
-          minMaking: makingPercent * 100,
-          minWeight: numericWeight,
-          maxMaking: makingPercent * 100,
-          maxWeight: numericWeight,
-          searchMin: numericWeight,
-          searchMax: numericWeight,
-          fallback: true,
-        },
-        lowest_making_charge_in_range: {
-          lowest_making_charge: (makingPercent * 100).toFixed(1),
-          product_count: 0,
-        },
-      };
-    });
-  };
 
   const parseRangeMin = (rangeValue) => {
     if (typeof rangeValue !== 'string') return null;
@@ -87,7 +38,8 @@ export const useGoldCalculator = (inputs, trigger = 0) => {
           metal_type: 'Gold',
           weight_range: isCoin ? String(inputs.weight) : null,
         };
-        const response = await fetch('/api/calculate-price', {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${baseUrl}/api/calculate-price`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -131,8 +83,6 @@ export const useGoldCalculator = (inputs, trigger = 0) => {
         setResults(mappedResults);
       } catch (error) {
         console.error("Error fetching calculation:", error);
-        // Fallback keeps brand cards visible even if backend API is down.
-        setResults(buildFallbackResults(numericWeight));
       }
     };
 

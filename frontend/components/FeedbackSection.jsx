@@ -43,36 +43,35 @@ export const FeedbackSection = ({ isDarkMode }) => {
       setStatusMessage('');
 
       try {
-        const response = await fetch('/api/feedback', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ name, contact, issue }),
-        });
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const endpoints = [`${baseUrl}/api/feedback`, `${baseUrl}/feedback`];
+        let lastError = null;
 
-        const result = await response.json();
+        for (const endpoint of endpoints) {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, contact, issue }),
+          });
 
-        if (!response.ok) {
-          throw new Error(result?.error || result?.detail || 'Unable to send feedback');
+          const result = await response.json();
+
+          if (response.ok) {
+            setStatusMessage(result?.message || 'Feedback sent successfully.');
+            setFormState({ name: '', contact: '', issue: '' });
+            setErrorMessage('');
+            return;
+          }
+
+          lastError = result?.detail || 'Unable to send feedback';
         }
 
-        setStatusMessage(result?.message || 'Feedback sent successfully.');
-        setFormState({ name: '', contact: '', issue: '' });
-        setErrorMessage('');
+        throw new Error(lastError || 'Unable to send feedback');
       } catch (error) {
-        try {
-          const key = 'pending_feedback_queue';
-          const queue = JSON.parse(localStorage.getItem(key) || '[]');
-          queue.push({ name, contact, issue, createdAt: new Date().toISOString() });
-          localStorage.setItem(key, JSON.stringify(queue));
-          setStatusMessage('Feedback saved locally. We will submit it when API is available.');
-          setErrorMessage('');
-          setFormState({ name: '', contact: '', issue: '' });
-        } catch {
-          setStatusMessage('');
-          setErrorMessage(error.message || 'Failed to send feedback.');
-        }
+        setStatusMessage('');
+        setErrorMessage(error.message || 'Failed to send feedback.');
       } finally {
         setIsSubmitting(false);
       }
