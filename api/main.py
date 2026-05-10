@@ -375,6 +375,62 @@ async def update_rates_cron():
         }
 
 
+# BOOTSTRAP ENDPOINT: Emergency cache population with fallback rates
+@app.get("/api/bootstrap-cache")
+async def bootstrap_cache():
+    """
+    🔥 Emergency endpoint to bootstrap cache with fallback rates.
+    
+    Use when:
+    - Cache is empty on startup
+    - Live rate scrapers are failing
+    - Need immediate fallback rates for calculations
+    """
+    try:
+        print("\n🔥 [BOOTSTRAP] Populating cache with fallback rates...")
+        
+        try:
+            from scraper_config import SCRAPER_FALLBACK_RATES
+        except ImportError:
+            from api.scraper_config import SCRAPER_FALLBACK_RATES
+        
+        # Convert fallback rates to API format
+        rates_list = []
+        for brand_name, rates in SCRAPER_FALLBACK_RATES.items():
+            # Normalize brand name
+            display_brand = "Kalyan" if brand_name == "Candere" else brand_name
+            rates_list.append({
+                "Brand": display_brand,
+                "24K": rates.get("24K", 0),
+                "22K": rates.get("22K", 0),
+                "18K": rates.get("18K", 0),
+                "14K": rates.get("14K", 0),
+            })
+        
+        # Update cache
+        import time
+        GOLD_CACHE["rates"] = rates_list
+        GOLD_CACHE["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        GOLD_CACHE["cache_status"] = "bootstrapped (fallback)"
+        
+        print(f"✅ Cache bootstrapped with {len(rates_list)} brands")
+        
+        return {
+            "status": "success",
+            "message": "Cache bootstrapped with fallback rates",
+            "rates": rates_list,
+            "cache_status": GOLD_CACHE["cache_status"],
+            "last_updated": GOLD_CACHE["last_updated"]
+        }
+    except Exception as e:
+        print(f"❌ Bootstrap failed: {str(e)}")
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "message": f"Bootstrap failed: {str(e)}"
+        }
+
+
 def _resolve_cached_rate(live_rates, purity):
     for item in live_rates:
         if not item:
