@@ -73,6 +73,34 @@ class FeedbackRequest(BaseModel):
     issue: str
 
 
+# ==========================================
+# CATEGORY NORMALIZATION (Frontend → Database)
+# ==========================================
+def _normalize_category(frontend_category: str) -> str:
+    """
+    Convert frontend category IDs to database category names.
+    
+    Frontend sends: 'band_plain_ring', 'hoops_a_type_of_bali'
+    Database has: 'Band(Plain Ring)', 'Hoops(a type of Bali)'
+    """
+    if not frontend_category:
+        return frontend_category
+    
+    # Mapping from frontend IDs to database category names
+    category_map = {
+        'band_plain_ring': 'Band(Plain Ring)',
+        'hoops_a_type_of_bali': 'Hoops(a type of Bali)',
+        # Add other mappings here if needed in future
+    }
+    
+    # If it's a known frontend ID, return the database category name
+    if frontend_category in category_map:
+        return category_map[frontend_category]
+    
+    # Otherwise return as-is (for regular categories like 'chain', 'ring', etc.)
+    return frontend_category
+
+
 def _parse_weight_range(weight_range: Optional[str]):
     if not weight_range or not isinstance(weight_range, str):
         return None
@@ -103,6 +131,9 @@ async def get_brand_making_charges(
     If no products found, expands to (target_weight - 2) to (target_weight + 2).
     Returns lowest making charge to be used for calculations + statistics.
     """
+    # 🔥 NORMALIZE CATEGORY (Frontend ID → Database Name)
+    normalized_category = _normalize_category(category)
+    
     collection_name = f"{brand_name.lower()}_products"
     collection = db[collection_name]
     weight_field = "net_weight"
@@ -116,7 +147,7 @@ async def get_brand_making_charges(
             max_w = round(target_weight + buffer, 2)
         
         cursor = collection.find({
-            "category": {"$regex": f"^{category}$", "$options": "i"},
+            "category": {"$regex": f"^{normalized_category}$", "$options": "i"},
             "purity": purity,
             weight_field: {"$gte": min_w, "$lte": max_w},
             "type": {"$regex": "Gold", "$options": "i"}
@@ -273,6 +304,9 @@ async def get_brand_products_in_elastic_range(
     target_weight: float,
     explicit_range: Optional[tuple] = None
 ):
+    # 🔥 NORMALIZE CATEGORY (Frontend ID → Database Name)
+    normalized_category = _normalize_category(category)
+    
     collection_name = f"{brand_name.lower()}_products"
     collection = db[collection_name]
     weight_field = "net_weight"
@@ -281,7 +315,7 @@ async def get_brand_products_in_elastic_range(
         min_w = round(target_weight - buffer, 2)
         max_w = round(target_weight + buffer, 2)
         cursor = collection.find({
-            "category": {"$regex": f"^{category}$", "$options": "i"},
+            "category": {"$regex": f"^{normalized_category}$", "$options": "i"},
             "purity": purity,
             weight_field: {"$gte": min_w, "$lte": max_w},
             "type": {"$regex": "Gold", "$options": "i"}
@@ -292,7 +326,7 @@ async def get_brand_products_in_elastic_range(
     if explicit_range:
         min_w, max_w = explicit_range
         cursor = collection.find({
-            "category": {"$regex": f"^{category}$", "$options": "i"},
+            "category": {"$regex": f"^{normalized_category}$", "$options": "i"},
             "purity": purity,
             weight_field: {"$gte": min_w, "$lte": max_w},
             "type": {"$regex": "Gold", "$options": "i"}
