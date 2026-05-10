@@ -200,16 +200,16 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-stone-950/60 backdrop-blur-sm animate-in fade-in duration-300">
       <div
-        className={`rounded-3xl shadow-2xl w-full max-w-6xl overflow-hidden animate-in zoom-in-95 duration-300 border ${styles.bgMain} ${styles.borderColor}`}
+        className={`rounded-none sm:rounded-3xl shadow-2xl w-full h-full sm:h-auto sm:max-h-[92vh] max-w-6xl overflow-hidden animate-in zoom-in-95 duration-300 border ${styles.bgMain} ${styles.borderColor}`}
       >
-        <div className="relative p-8 overflow-hidden border-b border-stone-800/70">
+        <div className="relative p-5 sm:p-8 overflow-hidden border-b border-stone-800/70">
           <div className={`absolute inset-0 bg-linear-to-br opacity-20 ${selectedBrand.accentColor}`}></div>
           <div className="relative z-10 flex justify-between items-start">
             <div>
-              <h3 className="font-serif font-medium text-3xl mb-1">{selectedBrand.name} Summary</h3>
-              <p className={`text-sm tracking-wide ${styles.textMuted}`}>
+              <h3 className="font-serif font-medium text-2xl sm:text-3xl mb-1">{selectedBrand.name} Summary</h3>
+              <p className={`text-sm sm:text-base tracking-wide ${styles.textMuted}`}>
                 Target {isCoinCategory && selectedRange ? `${selectedRange.min}g-${selectedRange.max}g` : `${targetWeight}g`}, {queryContext.purity}, {queryContext.category}
               </p>
             </div>
@@ -225,7 +225,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
           </div>
         </div>
 
-        <div className="px-8 pb-8 pt-6 space-y-6 max-h-[78vh] overflow-y-auto">
+        <div className="px-4 sm:px-8 pb-6 sm:pb-8 pt-5 sm:pt-6 space-y-5 sm:space-y-6 h-[calc(100%-96px)] sm:h-auto max-h-[calc(100vh-96px)] sm:max-h-[78vh] overflow-y-auto">
           {loading ? (
             <div className={`rounded-2xl border p-8 text-sm ${styles.borderColor} ${styles.textMuted}`}>
               Loading brand summary...
@@ -240,30 +240,30 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
 
           {!loading && !error ? (
             <>
-              <div className={`rounded-2xl border overflow-hidden ${styles.borderColor}`}>
-                <table className="w-full text-sm">
+              <div className={`rounded-2xl border overflow-x-auto ${styles.borderColor}`}>
+                <table className="w-full min-w-140 text-xs sm:text-sm">
                   <thead>
                     <tr className={`border-b ${styles.borderColor} ${isDarkMode ? 'bg-stone-900/50' : 'bg-stone-50'}`}>
-                      <th className={`text-left py-3 px-4 font-semibold uppercase text-xs tracking-wider ${styles.textMuted}`}>
+                      <th className={`text-left py-3 px-3 sm:px-4 font-semibold uppercase text-[10px] sm:text-xs tracking-wider ${styles.textMuted}`}>
                         Product Details
                       </th>
-                      <th className={`text-center py-3 px-4 font-semibold uppercase text-xs tracking-wider ${styles.textMuted}`}>
+                      <th className={`text-center py-3 px-3 sm:px-4 font-semibold uppercase text-[10px] sm:text-xs tracking-wider ${styles.textMuted}`}>
                         Rate
                       </th>
-                      <th className={`text-center py-3 px-4 font-semibold uppercase text-xs tracking-wider ${styles.textMuted}`}>
+                      <th className={`text-center py-3 px-3 sm:px-4 font-semibold uppercase text-[10px] sm:text-xs tracking-wider ${styles.textMuted}`}>
                         Weight
                       </th>
-                      <th className={`text-right py-3 px-4 font-semibold uppercase text-xs tracking-wider ${styles.textMuted}`}>
+                      <th className={`text-right py-3 px-3 sm:px-4 font-semibold uppercase text-[10px] sm:text-xs tracking-wider ${styles.textMuted}`}>
                         Value
                       </th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${styles.borderColor}`}>
                     <tr>
-                      <td className="py-4 px-4 font-medium">Gold Value</td>
-                      <td className="py-4 px-4 text-center">₹{computedBreakdown.appliedRate.toLocaleString('en-IN')}/g</td>
-                      <td className="py-4 px-4 text-center">{computedBreakdown.displayWeight}g</td>
-                      <td className="py-4 px-4 text-right font-semibold relative group/tooltip cursor-help">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 font-medium">Gold Value</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">₹{computedBreakdown.appliedRate.toLocaleString('en-IN')}/g</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">{computedBreakdown.displayWeight}g</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-right font-semibold relative group/tooltip cursor-help whitespace-nowrap">
                         ₹{computedBreakdown.goldValue.toLocaleString('en-IN')}
                         <div
                           className={`absolute bottom-full right-0 mb-2 hidden group-hover/tooltip:block w-max p-2 rounded text-[10px] shadow-lg z-20 ${isDarkMode ? 'bg-stone-800 text-stone-200' : 'bg-stone-800 text-stone-100'}`}
@@ -274,43 +274,43 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                     </tr>
 
                     <tr className={`border-t ${styles.borderColor} ${isDarkMode ? 'bg-stone-500/5' : 'bg-stone-500/15'}`}>
-                      <td className="py-4 px-4 font-medium">Making Charges</td>
-                      <td className="py-4 px-4 text-center text-base font-semibold text-stone-600 dark:text-stone-500" colSpan={2}>
-                        <span className="text-lg font-bold">{mcPercentage}%</span> × ₹{computedBreakdown.goldValue.toLocaleString('en-IN')}
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 font-medium">Making Charges</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center text-sm sm:text-base font-semibold text-stone-600 dark:text-stone-500 whitespace-nowrap" colSpan={2}>
+                        <span className="text-base sm:text-lg font-bold">{mcPercentage}%</span> × ₹{computedBreakdown.goldValue.toLocaleString('en-IN')}
                       </td>
-                      <td className="py-4 px-4 text-right font-semibold text-rose-500">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-right font-semibold text-rose-500 whitespace-nowrap">
                         ₹{computedBreakdown.makingCharges.toLocaleString('en-IN')}
                       </td>
                     </tr>
 
                     <tr className={`border-t-2 ${styles.borderColor}`}>
-                      <td className="py-4 px-4 font-medium">Sub Total</td>
-                      <td className="py-4 px-4 text-center">-</td>
-                      <td className="py-4 px-4 text-center text-sm">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 font-medium">Sub Total</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">-</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center text-xs sm:text-sm">
                         <div className="font-medium">{computedBreakdown.displayWeight}g</div>
                         <div className={`text-xs ${styles.textMuted}`}>Gross Wt.</div>
                       </td>
-                      <td className="py-4 px-4 text-right font-semibold">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-right font-semibold whitespace-nowrap">
                         ₹{computedBreakdown.subtotal.toLocaleString('en-IN')}
                       </td>
                     </tr>
 
                     <tr className={`border-t ${styles.borderColor}`}>
-                      <td className="py-4 px-4 font-medium">GST</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 font-medium">GST</td>
                       {/* Here is the updated GST center cell spanning 2 columns */}
-                      <td className="py-4 px-4 text-center text-sm font-medium text-stone-500" colSpan={2}>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center text-xs sm:text-sm font-medium text-stone-500 whitespace-nowrap" colSpan={2}>
                         3% × ₹{computedBreakdown.subtotal.toLocaleString('en-IN')}
                       </td>
-                      <td className="py-4 px-4 text-right font-semibold">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-right font-semibold whitespace-nowrap">
                         ₹{computedBreakdown.gst.toLocaleString('en-IN')}
                       </td>
                     </tr>
 
                     <tr className={`border-t-2 ${styles.borderColor} font-serif text-lg`}>
-                      <td className="py-4 px-4 font-bold">Grand Total</td>
-                      <td className="py-4 px-4 text-center">-</td>
-                      <td className="py-4 px-4 text-center">-</td>
-                      <td className="py-4 px-4 text-right font-bold">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 font-bold">Grand Total</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">-</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">-</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-right font-bold whitespace-nowrap">
                         ₹{computedBreakdown.total.toLocaleString('en-IN')}
                       </td>
                     </tr>
