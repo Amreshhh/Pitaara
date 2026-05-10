@@ -61,8 +61,18 @@ export const FeedbackSection = ({ isDarkMode }) => {
         setFormState({ name: '', contact: '', issue: '' });
         setErrorMessage('');
       } catch (error) {
-        setStatusMessage('');
-        setErrorMessage(error.message || 'Failed to send feedback.');
+        try {
+          const key = 'pending_feedback_queue';
+          const queue = JSON.parse(localStorage.getItem(key) || '[]');
+          queue.push({ name, contact, issue, createdAt: new Date().toISOString() });
+          localStorage.setItem(key, JSON.stringify(queue));
+          setStatusMessage('Feedback saved locally. We will submit it when API is available.');
+          setErrorMessage('');
+          setFormState({ name: '', contact: '', issue: '' });
+        } catch {
+          setStatusMessage('');
+          setErrorMessage(error.message || 'Failed to send feedback.');
+        }
       } finally {
         setIsSubmitting(false);
       }
