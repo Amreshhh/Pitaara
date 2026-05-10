@@ -7,6 +7,7 @@ import smtplib
 import ssl
 import os
 import math
+import time
 import motor.motor_asyncio
 from dotenv import load_dotenv
 from email.message import EmailMessage
@@ -30,7 +31,7 @@ app = FastAPI(lifespan=lifespan)
 
 # --- DATABASE SETUP ---
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
 db = client["jewelry_database"]
 
 # --- CORS SETUP ---
@@ -71,6 +72,17 @@ class FeedbackRequest(BaseModel):
     name: str
     contact: str
     issue: str
+
+
+async def _ensure_mongo_connection():
+    try:
+        await client.admin.command("ping")
+    except Exception as error:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=503,
+            detail=f"MongoDB connection unavailable: {error}",
+        )
 
 
 def _parse_weight_range(weight_range: Optional[str]):
@@ -375,62 +387,6 @@ async def update_rates_cron():
         }
 
 
-# BOOTSTRAP ENDPOINT: Emergency cache population with fallback rates
-@app.get("/api/bootstrap-cache")
-async def bootstrap_cache():
-    """
-    🔥 Emergency endpoint to bootstrap cache with fallback rates.
-    
-    Use when:
-    - Cache is empty on startup
-    - Live rate scrapers are failing
-    - Need immediate fallback rates for calculations
-    """
-    try:
-        print("\n🔥 [BOOTSTRAP] Populating cache with fallback rates...")
-        
-        try:
-            from scraper_config import SCRAPER_FALLBACK_RATES
-        except ImportError:
-            from api.scraper_config import SCRAPER_FALLBACK_RATES
-        
-        # Convert fallback rates to API format
-        rates_list = []
-        for brand_name, rates in SCRAPER_FALLBACK_RATES.items():
-            # Normalize brand name
-            display_brand = "Kalyan" if brand_name == "Candere" else brand_name
-            rates_list.append({
-                "Brand": display_brand,
-                "24K": rates.get("24K", 0),
-                "22K": rates.get("22K", 0),
-                "18K": rates.get("18K", 0),
-                "14K": rates.get("14K", 0),
-            })
-        
-        # Update cache
-        import time
-        GOLD_CACHE["rates"] = rates_list
-        GOLD_CACHE["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
-        GOLD_CACHE["cache_status"] = "bootstrapped (fallback)"
-        
-        print(f"✅ Cache bootstrapped with {len(rates_list)} brands")
-        
-        return {
-            "status": "success",
-            "message": "Cache bootstrapped with fallback rates",
-            "rates": rates_list,
-            "cache_status": GOLD_CACHE["cache_status"],
-            "last_updated": GOLD_CACHE["last_updated"]
-        }
-    except Exception as e:
-        print(f"❌ Bootstrap failed: {str(e)}")
-        traceback.print_exc()
-        return {
-            "status": "error",
-            "message": f"Bootstrap failed: {str(e)}"
-        }
-
-
 def _resolve_cached_rate(live_rates, purity):
     for item in live_rates:
         if not item:
@@ -601,6 +557,7 @@ async def submit_feedback(req: FeedbackRequest):
 async def calculate_price(req: CalculatorRequest):
     try:
         print(f"\n📥 INCOMING REQUEST: weight={req.weight}, purity={req.purity}, type={req.jewellery_type}, weight_range={req.weight_range}")
+        await _ensure_mongo_connection()
         
         # A. Get Live Rates (from cache)
         live_rates_response = await get_live_rates()
@@ -708,6 +665,70 @@ async def calculate_price(req: CalculatorRequest):
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error calculating price: {str(e)}")
+
+
+@app.get("/api/db-health")
+async def db_health():
+    try:
+        await _ensure_mongo_connection()
+        return {
+            "status": "ok",
+            "mongo": "connected",
+            "database": "jewelry_database",
+            "uri_configured": bool(MONGO_URI),
+        }
+    except HTTPException as exc:
+        raise exc
+
+
+# 🔥 EMERGENCY: Populate cache with fallback rates (for testing/debugging)
+@app.get("/api/bootstrap-cache")
+async def bootstrap_cache():
+    """
+    🚨 DEBUG ENDPOINT: Manually populate GOLD_CACHE with fallback rates.
+    
+    Use this if:
+    - Live rate scrapers are failing
+    - Cache is empty on startup
+    - You need to test the API immediately
+    
+    This endpoint directly injects fallback rates into the cache without
+    scraping from live websites.
+    """
+    try:
+        from scraper_config import SCRAPER_FALLBACK_RATES
+    except ImportError:
+        from api.scraper_config import SCRAPER_FALLBACK_RATES
+    
+    # Convert fallback rates to API format (list of dicts with Brand key)
+    rates_list = []
+    for brand_name, rates in SCRAPER_FALLBACK_RATES.items():
+        # Normalize Candere -> Kalyan for consistency
+        display_brand = "Kalyan" if brand_name == "Candere" else brand_name
+        rates_list.append({
+            "Brand": display_brand,
+            "24K": rates.get("24K", 0),
+            "22K": rates.get("22K", 0),
+            "18K": rates.get("18K", 0),
+            "14K": rates.get("14K", 0),
+        })
+    
+    # Update global cache
+    GOLD_CACHE["rates"] = rates_list
+    GOLD_CACHE["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    GOLD_CACHE["cache_status"] = "bootstrapped (fallback)"
+    
+    print(f"\n✅ Cache bootstrapped with {len(rates_list)} brands")
+    for rate in rates_list:
+        print(f"   {rate['Brand']}: 24K=₹{rate['24K']}, 22K=₹{rate['22K']}, 18K=₹{rate['18K']}")
+    
+    return {
+        "status": "success",
+        "message": "Cache bootstrapped with fallback rates",
+        "rates": rates_list,
+        "cache_status": GOLD_CACHE["cache_status"],
+        "last_updated": GOLD_CACHE["last_updated"]
+    }
 
 
 # # ============ 🔥 INVENTORY MATRIX HEATMAP ENDPOINT ============

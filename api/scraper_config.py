@@ -40,11 +40,6 @@ DEFAULT_SCRAPER_FALLBACK_RATES = {
 
 
 def _load_fallback_rates():
-    """Load fallback rates from file or return defaults.
-    
-    The file is updated daily by fetch_and_cache_rates() when live scrapers run.
-    If file doesn't exist, uses hardcoded defaults (will be created on first successful scrape).
-    """
     fallback_file = Path(__file__).with_name("live_rate_fallbacks.json")
     if not fallback_file.exists():
         return DEFAULT_SCRAPER_FALLBACK_RATES
@@ -63,11 +58,7 @@ def _load_fallback_rates():
                 continue
 
             try:
-                # Handle both "Kalyan" and "Candere" keys from file
-                # Store under standardized key "Candere" for consistency
-                canonical_brand = "Candere" if brand_name in ["Kalyan", "Candere"] else brand_name
-                
-                normalized[canonical_brand] = {
+                normalized[brand_name] = {
                     "24K": int(round(float(brand_rates["24K"]))),
                     "22K": int(round(float(brand_rates["22K"]))),
                     "18K": int(round(float(brand_rates["18K"]))),

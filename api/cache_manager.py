@@ -22,7 +22,6 @@ GOLD_CACHE = {
 
 
 def _persist_fallback_rates(rates):
-    """Persist fetched rates to JSON file for use as fallback on API failure."""
     fallback_file = Path(__file__).with_name("live_rate_fallbacks.json")
     payload = {"updated_at": time.strftime("%Y-%m-%d %H:%M:%S"), "rates": {}}
 
@@ -31,9 +30,9 @@ def _persist_fallback_rates(rates):
             continue
 
         brand_name = rate.get("Brand")
-        # FIX-1: Keep original brand name (don't convert Kalyan→Candere)
-        # Conversion happens when loading from file in scraper_config.py
-        
+        if brand_name == "Kalyan":
+            brand_name = "Candere"
+
         if not brand_name:
             continue
 
@@ -48,22 +47,13 @@ def _persist_fallback_rates(rates):
             continue
 
     if not payload["rates"]:
-        print("⚠️  No valid rates to persist")
         return
 
     try:
-        # Write the file
         fallback_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        
-        # FIX-2: Verify file was actually written successfully
-        verify_data = json.loads(fallback_file.read_text(encoding="utf-8"))
-        written_brands = len(verify_data.get("rates", {}))
-        written_timestamp = verify_data.get("updated_at")
-        print(f"✅ Persisted {written_brands} brand rates to {fallback_file}")
-        print(f"   Last updated: {written_timestamp}")
-        
-    except (OSError, json.JSONDecodeError) as error:
-        print(f"❌ Failed to persist fallback rates: {error}")
+        print(f"✅ Refreshed fallback rates at {fallback_file}")
+    except OSError as error:
+        print(f"⚠️ Unable to persist fallback rates: {error}")
 
 # ==========================================
 # CACHE UPDATE FUNCTION (Called by cron job)
