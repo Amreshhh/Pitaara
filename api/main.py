@@ -15,6 +15,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
 from email.message import EmailMessage
 import traceback
+import json
+from pathlib import Path
 
 # Live rates scraping imports
 from curl_cffi.requests import AsyncSession
@@ -47,6 +49,12 @@ async def _fetch_latest_live_rates_payload():
             rates.append(result)
 
     print_beautiful_console(rates)
+
+    # Debug: show raw aggregated rates structure
+    try:
+        print(f"DEBUG: AGGREGATED live rates -> {json.dumps(rates, ensure_ascii=False)}")
+    except Exception:
+        print(f"DEBUG: AGGREGATED live rates repr -> {repr(rates)}")
 
     return {
         "status": "success",
@@ -429,9 +437,18 @@ async def update_rates_cron():
     return await get_live_rates()
 
 
-def _resolve_cached_rate(live_rates, purity):
-    for item in live_rates:
+def _resolve_brand_rate(live_rates, brand, purity):
+    brand_key = str(brand or "").strip().lower()
+    print(f"DEBUG: Resolving rate for brand='{brand}' (key={brand_key}), purity='{purity}' against live_rates list of length {len(live_rates) if live_rates else 0}")
+    for idx, item in enumerate(live_rates):
         if not item:
+            continue
+        item_brand = str(item.get("Brand", "")).strip().lower()
+        try:
+            print(f"DEBUG: comparing against item[{idx}] brand='{item_brand}', purity_value={item.get(purity) if isinstance(item, dict) else None}")
+        except Exception:
+            pass
+        if item_brand != brand_key:
             continue
         rate = item.get(purity)
         if rate is None:
@@ -603,27 +620,36 @@ async def calculate_price(req: CalculatorRequest):
         # A. Get Live Rates (from cache)
         live_rates_response = await get_live_rates()
         live_rates = live_rates_response["rates"]
+        # Debug: print the live_rates payload received by calculate_price
+        try:
+            print(f"DEBUG: calculate_price received live_rates -> {json.dumps(live_rates, ensure_ascii=False)}")
+        except Exception:
+            print(f"DEBUG: calculate_price received live_rates repr -> {repr(live_rates)}")
+
+        # Also persist a debug copy to disk for offline inspection
+        try:
+            dbg_dir = Path(__file__).parent.parent / ".logs"
+            dbg_dir.mkdir(parents=True, exist_ok=True)
+            dbg_file = dbg_dir / "live_rates_debug.jsonl"
+            with open(dbg_file, 'a', encoding='utf-8') as f:
+                entry = {
+                    'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'live_rates': live_rates
+                }
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as _e:
+            print(f"⚠️ Could not write debug live_rates file: {_e}")
 
         brands_to_check = [ "Tanishq", "Kalyan", "Malabar", "Senco"]
         results = []
 
         # B. Loop through brands and calculate
         for brand in brands_to_check:
-            # Look up live rate for specific brand and purity
-            brand_rate_data = next((item for item in live_rates if item and item.get("Brand") == brand), None)
-            per_gram_rate = None
-            if brand_rate_data:
-                raw_rate = brand_rate_data.get(req.purity)
-                try:
-                    per_gram_rate = float(raw_rate)
-                except (TypeError, ValueError):
-                    per_gram_rate = None
+            # Strict brand lookup only (no cross-brand fallback)
+            per_gram_rate = _resolve_brand_rate(live_rates, brand, req.purity)
 
             if per_gram_rate is None:
-                per_gram_rate = _resolve_cached_rate(live_rates, req.purity)
-
-            if per_gram_rate is None:
-                raise HTTPException(status_code=503, detail=f"No cached live rate available for purity {req.purity}")
+                raise HTTPException(status_code=503, detail=f"No live rate available for brand {brand} and purity {req.purity}")
             print(f"   {brand}: Live Rate for {req.purity} = ₹{per_gram_rate}")
 
             # Get Making Charges in (weight-1) to (weight+1) range with lowest making charge
