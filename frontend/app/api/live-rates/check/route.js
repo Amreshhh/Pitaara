@@ -7,7 +7,8 @@ export async function GET() {
 				{ status: 500 }
 			);
 		}
-		const response = await fetch(`${backendUrl}/api/live-rates`, {
+
+		const response = await fetch(`${backendUrl}/api/live-rates/check`, {
 			cache: 'no-store',
 		});
 

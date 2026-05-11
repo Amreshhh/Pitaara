@@ -171,12 +171,6 @@ async def fetch_senco(session):
         if best_24k:
             rates['24K'] = best_24k
 
-        # Debug: print Senco rates before returning
-        try:
-            print(f"DEBUG: SENCO rates -> {rates}")
-        except Exception:
-            pass
-
         return rates
     except Exception as e:
         print(f"⚠️ Senco Error: {e}")

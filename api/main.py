@@ -29,8 +29,35 @@ except ImportError:
 # Load environment variables
 load_dotenv()
 
+LIVE_RATES_FILE = Path(__file__).with_name("live_rate_latest.json")
+
+
+def _save_live_rates_payload(payload: dict):
+    """Persist the latest live-rate payload so display endpoints can read it later.
+
+    Use an atomic write (tmp file + rename) to avoid partial writes on crash.
+    """
+    tmp = LIVE_RATES_FILE.with_suffix('.tmp')
+    try:
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(LIVE_RATES_FILE)
+    except Exception as e:
+        print(f"⚠️ Failed to persist live rates atomically: {e}")
+
+
+def _load_live_rates_payload():
+    """Load the latest stored live-rate payload from disk."""
+    if not LIVE_RATES_FILE.exists():
+        return None
+
+    try:
+        return json.loads(LIVE_RATES_FILE.read_text(encoding="utf-8"))
+    except Exception as error:
+        print(f"⚠️ Failed to load stored live rates: {error}")
+        return None
+
 async def _fetch_latest_live_rates_payload():
-    """Fetch latest live rates directly from provider modules."""
+    """Fetch latest live rates directly from provider modules and store them."""
     async with AsyncSession(impersonate="chrome124") as session:
         tasks = [
             fetch_tanishq(session),
@@ -50,18 +77,15 @@ async def _fetch_latest_live_rates_payload():
 
     print_beautiful_console(rates)
 
-    # Debug: show raw aggregated rates structure
-    try:
-        print(f"DEBUG: AGGREGATED live rates -> {json.dumps(rates, ensure_ascii=False)}")
-    except Exception:
-        print(f"DEBUG: AGGREGATED live rates repr -> {repr(rates)}")
-
-    return {
+    payload = {
         "status": "success",
         "cache_status": "live",
         "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
         "rates": rates,
     }
+
+    _save_live_rates_payload(payload)
+    return payload
 
 
 async def _scheduled_live_rate_refresh():
@@ -72,6 +96,58 @@ async def _scheduled_live_rate_refresh():
         print("✅ Scheduled live-rate refresh completed")
     except Exception as error:
         print(f"❌ Scheduled live-rate refresh failed: {error}")
+
+
+def _evaluate_live_rates_payload(payload: dict):
+    """Inspect stored live rates and report missing or incomplete brands."""
+    now_ts = time.time()
+
+    last_updated = payload.get("last_updated")
+    seconds_since = None
+    try:
+        if last_updated:
+            struct = time.strptime(last_updated, "%Y-%m-%d %H:%M:%S")
+            seconds_since = now_ts - time.mktime(struct)
+    except Exception:
+        seconds_since = None
+
+    rates = payload.get("rates", []) or []
+    desired_brands = ["Tanishq", "Kalyan", "Malabar", "Senco"]
+    purities = ["24K", "22K", "18K", "14K"]
+
+    brand_map = {str(r.get("Brand", "")): r for r in rates if isinstance(r, dict)}
+
+    missing_brands = []
+    incomplete_brands = []
+    for b in desired_brands:
+        entry = brand_map.get(b) or brand_map.get(b.capitalize())
+        if not entry:
+            missing_brands.append(b)
+            continue
+
+        has_numeric = False
+        for p in purities:
+            try:
+                v = entry.get(p)
+                if v is None:
+                    continue
+                if isinstance(v, (int, float)) or (isinstance(v, str) and v.replace(",", "").replace(".", "").isdigit()):
+                    has_numeric = True
+                    break
+            except Exception:
+                continue
+
+        if not has_numeric:
+            incomplete_brands.append(b)
+
+    return {
+        "status": "ok",
+        "last_updated": last_updated,
+        "seconds_since_update": seconds_since,
+        "missing_brands": missing_brands,
+        "incomplete_brands": incomplete_brands,
+        "needs_fetch": bool(missing_brands or incomplete_brands),
+    }
 
 
 @asynccontextmanager
@@ -423,8 +499,12 @@ async def get_brand_products_in_elastic_range(
 @app.get("/api/live-rates")
 async def get_live_rates():
     """
-    Fetches the latest live rates directly from the provider modules.
+    Returns the latest stored live rates from the cron job.
     """
+    payload = _load_live_rates_payload()
+    if payload:
+        return payload
+
     return await _fetch_latest_live_rates_payload()
 
 
@@ -432,22 +512,56 @@ async def get_live_rates():
 @app.get("/api/cron/update-rates")
 async def update_rates_cron():
     """
-    Manual endpoint kept for compatibility; it now returns the latest live rates.
+    Manual endpoint kept for compatibility; it fetches and stores the latest live rates.
     """
-    return await get_live_rates()
+    return await _fetch_latest_live_rates_payload()
+
+
+@app.get("/api/live-rates/check")
+async def check_live_rates():
+    """Check the stored live_rate_latest.json for completeness and freshness.
+
+    Returns:
+      - last_updated: string
+      - seconds_since_update: float
+      - missing_brands: list
+      - needs_fetch: bool
+    """
+    payload = _load_live_rates_payload()
+
+    if not payload:
+        print("⚠️ live_rate_latest.json missing; fetching fresh rates now.")
+        refreshed = await _fetch_latest_live_rates_payload()
+        return {
+            "status": "file-missing",
+            "refetched": True,
+            **_evaluate_live_rates_payload(refreshed),
+        }
+
+    result = _evaluate_live_rates_payload(payload)
+
+    if result["needs_fetch"]:
+        print(
+            "⚠️ live_rate_latest.json has missing/incomplete brands; attempting immediate refetch: "
+            f"missing={result['missing_brands']}, incomplete={result['incomplete_brands']}"
+        )
+        refreshed = await _fetch_latest_live_rates_payload()
+        refreshed_result = _evaluate_live_rates_payload(refreshed)
+        return {
+            "status": "refetched",
+            "refetched": True,
+            **refreshed_result,
+        }
+
+    return result
 
 
 def _resolve_brand_rate(live_rates, brand, purity):
     brand_key = str(brand or "").strip().lower()
-    print(f"DEBUG: Resolving rate for brand='{brand}' (key={brand_key}), purity='{purity}' against live_rates list of length {len(live_rates) if live_rates else 0}")
     for idx, item in enumerate(live_rates):
         if not item:
             continue
         item_brand = str(item.get("Brand", "")).strip().lower()
-        try:
-            print(f"DEBUG: comparing against item[{idx}] brand='{item_brand}', purity_value={item.get(purity) if isinstance(item, dict) else None}")
-        except Exception:
-            pass
         if item_brand != brand_key:
             continue
         rate = item.get(purity)
@@ -620,25 +734,6 @@ async def calculate_price(req: CalculatorRequest):
         # A. Get Live Rates (from cache)
         live_rates_response = await get_live_rates()
         live_rates = live_rates_response["rates"]
-        # Debug: print the live_rates payload received by calculate_price
-        try:
-            print(f"DEBUG: calculate_price received live_rates -> {json.dumps(live_rates, ensure_ascii=False)}")
-        except Exception:
-            print(f"DEBUG: calculate_price received live_rates repr -> {repr(live_rates)}")
-
-        # Also persist a debug copy to disk for offline inspection
-        try:
-            dbg_dir = Path(__file__).parent.parent / ".logs"
-            dbg_dir.mkdir(parents=True, exist_ok=True)
-            dbg_file = dbg_dir / "live_rates_debug.jsonl"
-            with open(dbg_file, 'a', encoding='utf-8') as f:
-                entry = {
-                    'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-                    'live_rates': live_rates
-                }
-                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-        except Exception as _e:
-            print(f"⚠️ Could not write debug live_rates file: {_e}")
 
         brands_to_check = [ "Tanishq", "Kalyan", "Malabar", "Senco"]
         results = []
