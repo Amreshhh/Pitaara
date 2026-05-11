@@ -9,10 +9,12 @@ import os
 import math
 import re
 import time
+import json
 import motor.motor_asyncio
 from dotenv import load_dotenv
 from email.message import EmailMessage
 import traceback
+from pathlib import Path
 
 # Live rates scraping imports
 from curl_cffi.requests import AsyncSession
@@ -71,6 +73,99 @@ class FeedbackRequest(BaseModel):
     name: str
     contact: str
     issue: str
+
+
+LIVE_RATE_FALLBACK_FILE = Path(__file__).with_name("live_rate_fallbacks.json")
+LIVE_RATE_BRANDS_ORDER = ["Tanishq", "Malabar", "Senco", "Kalyan"]
+
+
+def _save_live_rate_fallback(rates, updated_at):
+    """Persist latest known rates so they can be used if live fetching fails."""
+    try:
+        fallback_payload = {
+            "updated_at": updated_at,
+            "rates": {}
+        }
+
+        for rate in rates:
+            if not isinstance(rate, dict):
+                continue
+            brand = rate.get("Brand")
+            if not brand:
+                continue
+            fallback_payload["rates"][brand] = {
+                "24K": rate.get("24K"),
+                "22K": rate.get("22K"),
+                "18K": rate.get("18K"),
+                "14K": rate.get("14K"),
+            }
+
+        with LIVE_RATE_FALLBACK_FILE.open("w", encoding="utf-8") as file_handle:
+            json.dump(fallback_payload, file_handle, indent=2, ensure_ascii=False)
+        return True
+    except OSError as error:
+        print(f"⚠️ Failed to persist fallback rates: {error}")
+        return False
+
+
+def _load_live_rate_fallback():
+    """Load persisted fallback rates from disk and convert them to API response list format."""
+    if not LIVE_RATE_FALLBACK_FILE.exists():
+        return None, None
+
+    try:
+        with LIVE_RATE_FALLBACK_FILE.open("r", encoding="utf-8") as file_handle:
+            payload = json.load(file_handle)
+    except (json.JSONDecodeError, OSError):
+        return None, None
+
+    raw_rates = payload.get("rates", {})
+    if not isinstance(raw_rates, dict):
+        return None, None
+
+    rates = []
+    for brand, values in raw_rates.items():
+        if not isinstance(values, dict):
+            continue
+        rates.append({
+            "Brand": brand,
+            "24K": values.get("24K"),
+            "22K": values.get("22K"),
+            "18K": values.get("18K"),
+            "14K": values.get("14K"),
+        })
+
+    if not rates:
+        return None, None
+
+    return rates, payload.get("updated_at")
+
+
+def _merge_live_and_fallback_rates(live_rates, fallback_rates):
+    """Prefer live values brand-wise and use fallback only where live is unavailable."""
+    live_by_brand = {
+        rate.get("Brand"): rate
+        for rate in live_rates
+        if isinstance(rate, dict) and rate.get("Brand")
+    }
+    fallback_by_brand = {
+        rate.get("Brand"): rate
+        for rate in (fallback_rates or [])
+        if isinstance(rate, dict) and rate.get("Brand")
+    }
+
+    merged = []
+    for brand in LIVE_RATE_BRANDS_ORDER:
+        if brand in live_by_brand:
+            merged.append(live_by_brand[brand])
+        elif brand in fallback_by_brand:
+            merged.append(fallback_by_brand[brand])
+
+    for brand, rate in live_by_brand.items():
+        if brand not in LIVE_RATE_BRANDS_ORDER:
+            merged.append(rate)
+
+    return merged
 
 
 # ==========================================
@@ -363,6 +458,8 @@ async def get_live_rates():
     """
     Fetches the latest live rates directly from the provider modules.
     """
+    fallback_rates, fallback_updated_at = _load_live_rate_fallback()
+
     async with AsyncSession(impersonate="chrome124") as session:
         tasks = [
             fetch_tanishq(session),
@@ -372,22 +469,41 @@ async def get_live_rates():
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    rates = []
+    live_rates = []
     for result in results:
         if isinstance(result, Exception):
             print(f"⚠️ Live rate fetch failed: {result}")
             continue
         if result:
-            rates.append(result)
+            live_rates.append(result)
 
-    print_beautiful_console(rates)
+    merged_rates = _merge_live_and_fallback_rates(live_rates, fallback_rates)
+    now_ts = time.strftime("%Y-%m-%d %H:%M:%S")
 
-    return {
-        "status": "success",
-        "cache_status": "live",
-        "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "rates": rates,
-    }
+    if merged_rates:
+        print_beautiful_console(merged_rates)
+
+        # Persist the freshest resolved view every time live_rates.py endpoint runs.
+        _save_live_rate_fallback(merged_rates, now_ts)
+
+        used_fallback = bool(fallback_rates) and len(live_rates) < len(merged_rates)
+        return {
+            "status": "success",
+            "cache_status": "live_with_fallback" if used_fallback else "live",
+            "last_updated": now_ts,
+            "rates": merged_rates,
+        }
+
+    if fallback_rates:
+        print("⚠️ Live fetch unavailable. Serving persisted fallback rates.")
+        return {
+            "status": "success",
+            "cache_status": "fallback",
+            "last_updated": fallback_updated_at or now_ts,
+            "rates": fallback_rates,
+        }
+
+    raise HTTPException(status_code=503, detail="Live rates unavailable and no fallback data found")
 
 
 # CRON ENDPOINT: Manual trigger for cache update (Called by Vercel Cron)
