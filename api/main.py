@@ -755,7 +755,11 @@ async def calculate_price(req: CalculatorRequest):
         
         # A. Get Live Rates (from cache)
         live_rates_response = await get_live_rates()
-        live_rates = live_rates_response["rates"]
+        # Defensive: if stored payload is missing or malformed, attempt a fresh fetch
+        if not live_rates_response or not isinstance(live_rates_response, dict) or "rates" not in live_rates_response:
+            print("⚠️ live_rates payload missing or malformed; fetching fresh live rates.")
+            live_rates_response = await _fetch_latest_live_rates_payload()
+        live_rates = live_rates_response.get("rates", [])
 
         brands_to_check = [ "Tanishq", "Kalyan", "Malabar", "Senco"]
         results = []
