@@ -5,11 +5,6 @@ from typing import Dict, Optional
 from curl_cffi.requests import AsyncSession
 from selectolax.parser import HTMLParser
 
-try:
-    from scraper_config import TANISHQ_22K_FALLBACK, CANDERE_24K_FALLBACK
-except ImportError:
-    from api.scraper_config import TANISHQ_22K_FALLBACK, CANDERE_24K_FALLBACK
-
 # Helper function to prevent servers from sending cached/stale data
 def get_no_cache_headers():
     return {
@@ -49,8 +44,8 @@ async def fetch_tanishq(session):
                             rate_22k = int(num)
 
         if not rate_22k:
-            print("⚠️ Tanishq live DOM failed. Using fallback.")
-            rate_22k = TANISHQ_22K_FALLBACK
+            print("⚠️ Tanishq live DOM failed.")
+            return None
 
         # 🚀 THE MATH CALCULATIONS
 
@@ -205,8 +200,8 @@ async def fetch_candere(session):
                     base_24k_rate = int(num)
 
         if not base_24k_rate:
-            print("⚠️ Candere live DOM failed. Using fallback.")
-            base_24k_rate = CANDERE_24K_FALLBACK
+            print("⚠️ Candere live DOM failed.")
+            return None
 
         rates['24K'] = base_24k_rate
         rates['22K'] = int(round(base_24k_rate * (22.0 / 24.0)))
