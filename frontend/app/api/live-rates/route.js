@@ -1,6 +1,6 @@
 export async function GET() {
 	try {
-		const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
+		const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 		const response = await fetch(`${backendUrl}/api/live-rates`, {
 			cache: 'no-store',
 		});
