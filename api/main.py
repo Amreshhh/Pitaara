@@ -29,31 +29,37 @@ except ImportError:
 # Load environment variables
 load_dotenv()
 
-LIVE_RATES_FILE = Path(__file__).with_name("live_rate_latest.json")
+# Mongo collection for storing live rates (persisted across serverless invocations)
+LIVE_RATES_COLLECTION = "Cron_live_rates"
 
 
-def _save_live_rates_payload(payload: dict):
-    """Persist the latest live-rate payload so display endpoints can read it later.
-
-    Use an atomic write (tmp file + rename) to avoid partial writes on crash.
-    """
-    tmp = LIVE_RATES_FILE.with_suffix('.tmp')
+async def _save_live_rates_payload_to_mongo(payload: dict):
+    """Persist the latest live-rate payload to MongoDB."""
     try:
-        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(LIVE_RATES_FILE)
+        coll = db[LIVE_RATES_COLLECTION]
+        # Upsert: replace existing document or insert if missing
+        result = await coll.update_one(
+            {"_id": "latest"},  # Use a fixed ID to store the latest rates
+            {"$set": payload},
+            upsert=True
+        )
+        print(f"✅ Saved live rates to Mongo: matched={result.matched_count}, upserted={result.upserted_id}")
     except Exception as e:
-        print(f"⚠️ Failed to persist live rates atomically: {e}")
+        print(f"⚠️ Failed to persist live rates to Mongo: {e}")
 
 
-def _load_live_rates_payload():
-    """Load the latest stored live-rate payload from disk."""
-    if not LIVE_RATES_FILE.exists():
-        return None
-
+async def _load_live_rates_payload_from_mongo():
+    """Load the latest stored live-rate payload from MongoDB."""
     try:
-        return json.loads(LIVE_RATES_FILE.read_text(encoding="utf-8"))
+        coll = db[LIVE_RATES_COLLECTION]
+        doc = await coll.find_one({"_id": "latest"})
+        if doc:
+            # Remove MongoDB's _id from the response
+            doc.pop("_id", None)
+            return doc
+        return None
     except Exception as error:
-        print(f"⚠️ Failed to load stored live rates: {error}")
+        print(f"⚠️ Failed to load live rates from Mongo: {error}")
         return None
 
 async def _fetch_latest_live_rates_payload():
@@ -84,7 +90,7 @@ async def _fetch_latest_live_rates_payload():
         "rates": rates,
     }
 
-    _save_live_rates_payload(payload)
+    await _save_live_rates_payload_to_mongo(payload)
     return payload
 
 
@@ -495,13 +501,13 @@ async def get_brand_products_in_elastic_range(
 #               API ENDPOINTS
 # ==========================================
 
-# 1. LIVE RATES API (fetches live data directly on each request)
+# 1. LIVE RATES API (reads from Mongo)
 @app.get("/api/live-rates")
 async def get_live_rates():
     """
-    Returns the latest stored live rates from the cron job.
+    Returns the latest stored live rates from Mongo Cron_live_rates collection.
     """
-    payload = _load_live_rates_payload()
+    payload = await _load_live_rates_payload_from_mongo()
     if payload:
         return payload
 
@@ -519,7 +525,7 @@ async def update_rates_cron():
 
 @app.get("/api/live-rates/check")
 async def check_live_rates():
-    """Check the stored live_rate_latest.json for completeness and freshness.
+    """Check the stored live_rates in Mongo for completeness and freshness.
 
     Returns:
       - last_updated: string
@@ -527,10 +533,11 @@ async def check_live_rates():
       - missing_brands: list
       - needs_fetch: bool
     """
-    payload = _load_live_rates_payload()
+    payload = await _load_live_rates_payload_from_mongo()
+    now_ts = time.time()
 
     if not payload:
-        print("⚠️ live_rate_latest.json missing; fetching fresh rates now.")
+        print("⚠️ Mongo Cron_live_rates missing latest rates; fetching fresh rates now.")
         refreshed = await _fetch_latest_live_rates_payload()
         return {
             "status": "file-missing",
@@ -542,7 +549,7 @@ async def check_live_rates():
 
     if result["needs_fetch"]:
         print(
-            "⚠️ live_rate_latest.json has missing/incomplete brands; attempting immediate refetch: "
+            "⚠️ Stored live rates have missing/incomplete brands; attempting immediate refetch: "
             f"missing={result['missing_brands']}, incomplete={result['incomplete_brands']}"
         )
         refreshed = await _fetch_latest_live_rates_payload()
