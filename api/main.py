@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException,Header, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -17,6 +17,7 @@ from email.message import EmailMessage
 import traceback
 import json
 from pathlib import Path
+
 
 # Live rates scraping imports
 from curl_cffi.requests import AsyncSession
@@ -514,12 +515,26 @@ async def get_live_rates():
     return await _fetch_latest_live_rates_payload()
 
 
-# CRON ENDPOINT: Manual trigger for cache update (Called by Vercel Cron)
+# CRON ENDPOINT: Secure trigger for cache update (Called by Vercel Cron)
 @app.get("/api/cron/update-rates")
-async def update_rates_cron():
+async def update_rates_cron(authorization: str = Header(None)):
     """
-    Manual endpoint kept for compatibility; it fetches and stores the latest live rates.
+    Secure endpoint triggered by Vercel Cron to fetch and store the latest live rates.
+    Validates the CRON_SECRET token from the Authorization header.
     """
+    cron_secret = os.getenv("CRON_SECRET")
+    
+    # Only enforce the check if the secret exists in the environment.
+    # This allows you to still test it locally easily if you haven't set the env var locally.
+    if cron_secret:
+        if authorization != f"Bearer {cron_secret}":
+            print("⚠️ Unauthorized attempt to trigger cron job.")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unauthorized access to cron endpoint"
+            )
+
+    print("✅ Authorized cron execution starting...")
     return await _fetch_latest_live_rates_payload()
 
 
