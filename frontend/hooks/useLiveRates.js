@@ -8,22 +8,6 @@ export const useLiveRates = () => {
   const [cacheStatus, setCacheStatus] = useState('loading');
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const loadCachedRates = () => {
-    try {
-      const raw = localStorage.getItem('cached_gold_rates');
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      const rates = Array.isArray(parsed?.rates) ? parsed.rates : null;
-      if (!rates?.length) return null;
-      return {
-        rates,
-        lastUpdated: parsed?.last_updated || null,
-      };
-    } catch {
-      return null;
-    }
-  };
-
   const normalizeLiveRates = (payload) => {
     const rates = Array.isArray(payload?.rates) ? payload.rates : Array.isArray(payload) ? payload : null;
     if (!Array.isArray(rates) || !rates.length) {
@@ -50,8 +34,6 @@ export const useLiveRates = () => {
 
   useEffect(() => {
     const fetchRates = async () => {
-      const cached = loadCachedRates();
-
       try {
         const response = await fetch('/api/live-rates');
         if (!response.ok) throw new Error('Network response was not ok');
@@ -62,23 +44,11 @@ export const useLiveRates = () => {
         setLiveRates(processedRates);
         setCacheStatus(data.cache_status || 'live');
         setLastUpdated(data.last_updated || new Date().toLocaleString());
-
-        localStorage.setItem('cached_gold_rates', JSON.stringify({
-          rates: processedRates,
-          last_updated: data.last_updated || new Date().toLocaleString(),
-          timestamp: Date.now(),
-        }));
       } catch (error) {
         console.error('Failed to fetch live rates:', error);
-        if (cached?.rates?.length) {
-          setLiveRates(cached.rates);
-          setCacheStatus('fallback');
-          setLastUpdated(cached.lastUpdated);
-        } else {
-          setLiveRates([]);
-          setCacheStatus('error');
-          setLastUpdated(null);
-        }
+        setLiveRates([]);
+        setCacheStatus('error');
+        setLastUpdated(null);
       }
 
       setLoading(false);
