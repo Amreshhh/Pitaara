@@ -1,6 +1,6 @@
 export async function GET(request) {
   try {
-    const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
+    const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const url = new URL(request.url);
     const search = url.search; // preserve query params (category, purity)
 
