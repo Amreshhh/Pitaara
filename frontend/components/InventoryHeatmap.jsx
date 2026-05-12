@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { getThemeStyles } from '@/lib/utils';
 
 export default function InventoryHeatmap({ isDarkMode = false }) {
@@ -11,6 +12,7 @@ export default function InventoryHeatmap({ isDarkMode = false }) {
   const [availablePurities, setAvailablePurities] = useState([]);
   const [heatmapData, setHeatmapData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [error, setError] = useState(null);
   const [viewportWidth, setViewportWidth] = useState(0);
@@ -102,6 +104,7 @@ export default function InventoryHeatmap({ isDarkMode = false }) {
     const fetchHeatmapData = async () => {
       try {
         setLoading(true);
+        setIsRefreshing(Boolean(heatmapData));
         const categoryParam = encodeURIComponent(selectedCategory.trim());
         const purityTrim = (selectedPurity || '').trim();
         const purityParam = purityTrim ? `&purity=${encodeURIComponent(purityTrim)}` : '';
@@ -132,6 +135,7 @@ export default function InventoryHeatmap({ isDarkMode = false }) {
         setHeatmapData(null);
       } finally {
         setLoading(false);
+        setIsRefreshing(false);
       }
     };
 
@@ -193,12 +197,43 @@ export default function InventoryHeatmap({ isDarkMode = false }) {
     );
   }
 
-  if (loading || !heatmapData) {
+  if (!heatmapData) {
     return (
-      <div className="w-full flex items-center justify-center bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-8 min-h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading inventory matrix...</p>
+      <div className="w-full rounded-2xl p-4 sm:p-6 md:p-8 border shadow-[0_24px_80px_rgba(2,6,23,0.14)] bg-linear-to-br from-white via-amber-50/60 to-stone-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
+        <div className="mb-5 sm:mb-8 flex items-start justify-between gap-4">
+          <div className="space-y-3">
+            <div className="h-8 w-72 max-w-full rounded-xl bg-linear-to-r from-amber-200/70 via-amber-100/90 to-amber-200/70 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 animate-pulse" />
+            <div className="h-4 w-[min(28rem,100%)] rounded-lg bg-linear-to-r from-stone-200/70 via-stone-100/90 to-stone-200/70 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 animate-pulse" />
+          </div>
+          <div className="hidden sm:flex items-center gap-2 rounded-full border border-amber-200/60 bg-white/70 px-3 py-2 text-xs font-medium text-stone-500 shadow-sm dark:border-slate-700 dark:bg-slate-950/50 dark:text-stone-300">
+            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+            Building matrix
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="h-12 rounded-xl bg-linear-to-br from-white to-stone-200 dark:from-slate-800 dark:to-slate-900 border border-stone-200/70 dark:border-slate-800 animate-pulse" />
+          ))}
+        </div>
+
+        <div className="rounded-2xl p-3 sm:p-5 border border-dashed border-amber-200/60 dark:border-slate-700 bg-white/65 dark:bg-slate-950/40">
+          <div className="grid gap-2" style={{ gridTemplateColumns: '140px repeat(4, minmax(110px, 1fr))' }}>
+            {Array.from({ length: 5 }).map((_, rowIndex) => (
+              <div key={rowIndex} className="contents">
+                {Array.from({ length: 5 }).map((__, colIndex) => (
+                  <div
+                    key={`${rowIndex}-${colIndex}`}
+                    className="min-h-16 sm:min-h-20 rounded-xl border border-stone-200/70 dark:border-slate-800 bg-linear-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 animate-pulse"
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 flex items-center justify-center gap-3 text-sm text-stone-500 dark:text-stone-400">
+            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+            Loading inventory matrix...
+          </div>
         </div>
       </div>
     );
@@ -229,33 +264,47 @@ export default function InventoryHeatmap({ isDarkMode = false }) {
           <label htmlFor="category-select" className={`text-sm font-semibold ${styles.textMain}`}>
             Select Category:
           </label>
-          <select
-            id="category-select"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className={`w-full sm:w-auto min-h-11 px-4 py-3 rounded-lg border shadow-inner shadow-black/10 focus:ring-2 focus:ring-amber-400 focus:border-transparent cursor-pointer transition-all backdrop-blur ${isDarkMode ? 'border-white/10 bg-slate-950/70 text-slate-100' : 'border-amber-200/60 bg-white/80 text-stone-900'}`}
-          >
-            {categoriesObj.map((cat) => (
-              <option key={cat.value} value={cat.value}>
-                {cat.label}
-              </option>
-            ))}
-          </select>
+          <div className="relative w-full sm:w-auto group">
+            <select
+              id="category-select"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className={`w-full sm:w-55 min-h-11 appearance-none px-4 py-3 pr-11 rounded-xl border shadow-inner shadow-black/10 focus:ring-2 focus:ring-amber-400/50 focus:border-transparent cursor-pointer transition-all duration-200 ease-out backdrop-blur transform-gpu hover:-translate-y-0.5 ${isDarkMode ? 'border-white/10 bg-slate-950/70 text-slate-100' : 'border-amber-200/60 bg-white/85 text-stone-900'} group-focus-within:shadow-[0_14px_30px_rgba(217,119,6,0.12)]`}
+            >
+              {categoriesObj.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={16}
+              className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 transition-transform duration-200 ease-out ${isDarkMode ? 'text-amber-200' : 'text-amber-700'} group-focus-within:rotate-180 group-hover:translate-y-[calc(-50%+1px)]`}
+            />
+            <div className={`pointer-events-none absolute inset-x-3 bottom-2 h-px rounded-full bg-linear-to-r from-transparent via-amber-400/60 to-transparent opacity-0 transition-opacity duration-200 group-focus-within:opacity-100`} />
+          </div>
 
           {/* Purity selector */}
           <label htmlFor="purity-select" className={`text-sm font-semibold ml-0 sm:ml-4 ${styles.textMain}`}>
             Purity:
           </label>
-          <select
-            id="purity-select"
-            value={selectedPurity}
-            onChange={(e) => setSelectedPurity(e.target.value)}
-            className={`w-full sm:w-auto min-h-11 px-4 py-3 rounded-lg border shadow-inner shadow-black/10 focus:ring-2 focus:ring-amber-400 focus:border-transparent cursor-pointer transition-all backdrop-blur ${isDarkMode ? 'border-white/10 bg-slate-950/70 text-slate-100' : 'border-amber-200/60 bg-white/80 text-stone-900'}`}
-          >
-            {purityOrder.filter((p) => availablePurities.includes(p)).map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
+          <div className="relative w-full sm:w-auto group">
+            <select
+              id="purity-select"
+              value={selectedPurity}
+              onChange={(e) => setSelectedPurity(e.target.value)}
+              className={`w-full sm:w-40 min-h-11 appearance-none px-4 py-3 pr-11 rounded-xl border shadow-inner shadow-black/10 focus:ring-2 focus:ring-amber-400/50 focus:border-transparent cursor-pointer transition-all duration-200 ease-out backdrop-blur transform-gpu hover:-translate-y-0.5 ${isDarkMode ? 'border-white/10 bg-slate-950/70 text-slate-100' : 'border-amber-200/60 bg-white/85 text-stone-900'} group-focus-within:shadow-[0_14px_30px_rgba(217,119,6,0.12)]`}
+            >
+              {purityOrder.filter((p) => availablePurities.includes(p)).map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            <ChevronDown
+              size={16}
+              className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 transition-transform duration-200 ease-out ${isDarkMode ? 'text-amber-200' : 'text-amber-700'} group-focus-within:rotate-180 group-hover:translate-y-[calc(-50%+1px)]`}
+            />
+            <div className={`pointer-events-none absolute inset-x-3 bottom-2 h-px rounded-full bg-linear-to-r from-transparent via-amber-400/60 to-transparent opacity-0 transition-opacity duration-200 group-focus-within:opacity-100`} />
+          </div>
 
           {/* Stats */}
           <div className={`ml-0 sm:ml-auto text-sm ${styles.textMuted}`}>
@@ -270,7 +319,15 @@ export default function InventoryHeatmap({ isDarkMode = false }) {
       </div>
 
       {/* Heatmap */}
-      <div className={`rounded-2xl p-3 sm:p-6 overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${isDarkMode ? 'border border-white/10 bg-slate-950/55' : 'border border-amber-100 bg-white/70'}`}>
+      <div className={`relative rounded-2xl p-3 sm:p-6 overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-300 ${loading ? 'opacity-90' : 'opacity-100'} ${isDarkMode ? 'border border-white/10 bg-slate-950/55' : 'border border-amber-100 bg-white/70'}`}>
+        {isRefreshing && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-stone-950/10 dark:bg-black/20 backdrop-blur-[1px] summary-panel-enter pointer-events-none">
+            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/80 px-4 py-2 shadow-lg dark:bg-slate-950/80 dark:text-stone-100">
+              <span className="h-3 w-3 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-sm font-medium">Refreshing matrix...</span>
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <div className="min-w-190">
             <div

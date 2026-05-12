@@ -184,7 +184,8 @@ db = client["jewelry_database"]
 # 1. Define your allowed origins here
 origins = [
     "http://localhost:3000", # For your local React/Next.js testing
-    "https://pitaara.vercel.app", # Replace with your LIVE frontend Vercel URL
+    "https://pitaara.vercel.app",
+     "https://pitaara-p4oh2yhx2-amreshhhs-projects.vercel.app" # Replace with your LIVE frontend Vercel URL
 ]
 
 # 2. Update the middleware to use the origins list
