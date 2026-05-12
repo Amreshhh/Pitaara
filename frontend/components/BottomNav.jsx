@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Home, Activity, BarChart2 } from 'lucide-react';
+import { Home, Activity, BarChart2, LayoutGrid } from 'lucide-react';
 
 export default function BottomNav() {
   const [activeTab, setActiveTab] = useState('home');
@@ -20,6 +20,12 @@ export default function BottomNav() {
       return;
     }
 
+    if (selector === 'inventory') {
+      const inventorySection = document.querySelector('.heatmap-section');
+      inventorySection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
     const target = document.querySelector(selector);
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
@@ -30,7 +36,13 @@ export default function BottomNav() {
     const updateActiveTab = () => {
       const estimator = document.querySelector('#estimator');
       const ratesPanel = document.querySelector('.hero-rates-panel');
+      const inventorySection = document.querySelector('.heatmap-section');
       const scrollY = window.scrollY + window.innerHeight * 0.35;
+
+      if (inventorySection && scrollY >= inventorySection.offsetTop - 80) {
+        setActiveTab('inventory');
+        return;
+      }
 
       if (ratesPanel && scrollY >= ratesPanel.offsetTop - 80) {
         setActiveTab('rates');
@@ -73,6 +85,11 @@ export default function BottomNav() {
       <button type="button" onClick={() => handleNavClick('rates', 'rates')} className={navButtonClass(activeTab === 'rates')}>
         <BarChart2 size={22} />
         <span className="text-[10px] mt-1 font-medium">Rates</span>
+      </button>
+
+      <button type="button" onClick={() => handleNavClick('inventory', 'inventory')} className={navButtonClass(activeTab === 'inventory')}>
+        <LayoutGrid size={22} />
+        <span className="text-[10px] mt-1 font-medium">Inventory</span>
       </button>
     </nav>
   );

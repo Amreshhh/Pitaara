@@ -1,36 +1,22 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { getThemeStyles } from '@/lib/utils';
 
-export default function InventoryHeatmap() {
-  const [categories, setCategories] = useState([]);
+export default function InventoryHeatmap({ isDarkMode = false }) {
+  const styles = getThemeStyles(isDarkMode);
+  const [categoriesObj, setCategoriesObj] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedPurity, setSelectedPurity] = useState('22K');
+  const [availablePurities, setAvailablePurities] = useState([]);
   const [heatmapData, setHeatmapData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [error, setError] = useState(null);
-  const [plotlyReady, setPlotlyReady] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(0);
-  const plotDivRef = useRef(null);
+  const purityOrder = ['24K', '22K', '14K', '18K'];
 
   const isMobile = viewportWidth > 0 && viewportWidth < 640;
-
-  // Load Plotly on client-side only
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const script = document.createElement('script');
-    script.src = 'https://cdn.plot.ly/plotly-2.26.0.min.js';
-    script.async = true;
-    script.onload = () => setPlotlyReady(true);
-    document.head.appendChild(script);
-    
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
-  }, []);
 
   // Track viewport width for responsive chart/layout behavior
   useEffect(() => {
@@ -58,15 +44,36 @@ export default function InventoryHeatmap() {
         
         const data = await response.json();
         console.log('✅ Categories fetched:', data.categories);
-        const cats = data.categories || [];
-        setCategories(cats);
-        
-        // Set first category only if categories loaded
-        if (cats.length > 0) {
-          console.log('🎯 Setting default category to:', cats[0]);
-          setSelectedCategory(cats[0]);
+        const rawCats = data.categories || [];
+
+        // Map display labels but keep original value for backend queries
+        const mapped = rawCats.map((c) => {
+          const original = c;
+          // Normalize value to match backend canonical category strings
+          let value = original;
+          let label = String(c || '').trim();
+          if (label === 'Hoops(a type of Bali)') {
+            label = 'Hoops';
+          }
+          // Accept both historical and canonical forms and send canonical to backend
+          if (label === 'Band(Plain Ring)' || label === 'Band or Plain Ring') {
+            value = 'Band or Plain Ring';
+            label = 'Band or Plain Ring';
+          }
+          return { value, label };
+        });
+
+        if (!mapped.some((cat) => cat.value === 'Band or Plain Ring')) {
+          mapped.push({ value: 'Band or Plain Ring', label: 'Band or Plain Ring' });
         }
-        
+
+        setCategoriesObj(mapped);
+
+        if (mapped.length > 0) {
+          console.log('🎯 Setting default category to:', mapped[0]);
+          setSelectedCategory(mapped[0].value);
+        }
+
         setCategoriesLoaded(true);
       } catch (err) {
         console.error('❌ Failed to fetch categories:', err);
@@ -96,13 +103,28 @@ export default function InventoryHeatmap() {
       try {
         setLoading(true);
         const categoryParam = encodeURIComponent(selectedCategory.trim());
-        console.log('📊 Fetching heatmap for:', categoryParam);
-        const response = await fetch(`/api/inventory-matrix/${categoryParam}`);
+        const purityTrim = (selectedPurity || '').trim();
+        const purityParam = purityTrim ? `&purity=${encodeURIComponent(purityTrim)}` : '';
+        console.log('📊 Fetching heatmap (brands × ranges) for:', categoryParam, purityTrim || '<no-purity>');
+        const response = await fetch(`/api/inventory-heatmap?category=${categoryParam}${purityParam}`);
         if (!response.ok) throw new Error(`API returned ${response.status}`);
         
         const data = await response.json();
         console.log('✅ Heatmap data loaded');
         setHeatmapData(data);
+        // update available purities from backend
+        setAvailablePurities((data.available_purities || []).filter((p) => purityOrder.includes(p)));
+        // If selectedPurity is empty (first load), pick the first allowed purity available
+        if (!selectedPurity || selectedPurity === '') {
+          const pick = purityOrder.find((p) => (data.available_purities || []).includes(p));
+          if (pick) setSelectedPurity(pick);
+        } else {
+          // if currently selected purity is not present in availablePurities, reset to first allowed
+          if (selectedPurity && !(data.available_purities || []).includes(selectedPurity)) {
+            const pick = purityOrder.find((p) => (data.available_purities || []).includes(p));
+            setSelectedPurity(pick || '');
+          }
+        }
         setError(null);
       } catch (err) {
         console.error('❌ Error fetching heatmap:', err);
@@ -114,91 +136,43 @@ export default function InventoryHeatmap() {
     };
 
     fetchHeatmapData();
-  }, [selectedCategory, categoriesLoaded]);
+  }, [selectedCategory, categoriesLoaded, selectedPurity]);
 
-  // Render Plotly chart when data changes
-  useEffect(() => {
-    if (!heatmapData || !plotDivRef.current || !plotlyReady || typeof window === 'undefined') return;
+  const brands = heatmapData?.brands || [];
+  const weightRanges = heatmapData?.weight_ranges || [];
+  const matrix = heatmapData?.matrix || [];
+  const maxCount = useMemo(() => {
+    if (!Array.isArray(matrix)) return 0;
+    return matrix.flat().reduce((max, value) => Math.max(max, Number(value) || 0), 0);
+  }, [matrix]);
 
-    const { weight_ranges, purities, matrix, category } = heatmapData;
-    const compactMode = isMobile;
-
-    const trace = {
-      z: matrix,
-      x: purities,
-      y: weight_ranges,
-      type: 'heatmap',
-      colorscale: 'Viridis',
-      hoverongaps: false,
-      hovertemplate: '<b>Weight Range:</b> %{y}<br><b>Purity:</b> %{x}<br><b>Product Count:</b> %{z}<extra></extra>',
-      colorbar: {
-        title: 'Product<br>Count',
-        thickness: 15,
-        len: 0.7,
-      },
-    };
-
-    const layout = {
-      title: `<b>${category}</b> - Inventory Matrix (Weight × Purity)`,
-      xaxis: {
-        title: '<b>Purity</b>',
-        side: 'bottom',
-        tickfont: {
-          size: compactMode ? 10 : 12,
-        },
-      },
-      yaxis: {
-        title: '<b>Weight Range (grams)</b>',
-        autorange: 'reversed',
-        tickfont: {
-          size: compactMode ? 10 : 12,
-        },
-      },
-      margin: compactMode
-        ? { l: 72, r: 32, t: 72, b: 70 }
-        : { l: 120, r: 100, t: 100, b: 100 },
-      titlefont: {
-        size: compactMode ? 14 : 18,
-      },
-      plot_bgcolor: 'rgba(0,0,0,0)',
-      paper_bgcolor: 'rgba(255,255,255,1)',
-      font: {
-        family: 'var(--font-sans), Inter, system-ui, sans-serif',
-        color: 'rgba(0,0,0,0.7)',
-        size: compactMode ? 10 : 12,
-      },
-      hovermode: 'closest',
-      responsive: true,
-      autosize: true,
-    };
-
-    const config = {
-      responsive: true,
-      displayModeBar: !compactMode,
-      displaylogo: false,
-      modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
-    };
-
-    window.Plotly.newPlot(plotDivRef.current, [trace], layout, config);
-
-    // Cleanup
-    return () => {
-      if (plotDivRef.current && window.Plotly) {
-        window.Plotly.purge(plotDivRef.current);
-      }
-    };
-  }, [heatmapData, plotlyReady]);
-
-  if (loading || !plotlyReady || !heatmapData) {
-    return (
-      <div className="w-full flex items-center justify-center bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-8 min-h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading inventory matrix...</p>
-        </div>
-      </div>
-    );
-  }
+  const cellStyle = (value) => {
+    const count = Number(value) || 0;
+    const intensity = maxCount > 0 ? count / maxCount : 0;
+    
+    if (isDarkMode) {
+      const bgAlpha = 0.10 + intensity * 0.72;
+      const borderAlpha = 0.22 + intensity * 0.38;
+      return {
+        background: `linear-gradient(135deg, rgba(245,158,11,${bgAlpha}) 0%, rgba(30,41,59,${Math.max(0.22, bgAlpha - 0.03)}) 100%)`,
+        borderColor: `rgba(251,191,36,${borderAlpha})`,
+        color: intensity > 0.45 ? '#fffaf0' : '#f8e7bf',
+        boxShadow: intensity > 0.55 ? '0 14px 34px rgba(15,23,42,0.24)' : '0 8px 18px rgba(15,23,42,0.10)',
+      };
+    } else {
+      const r = Math.round(255 * (1 - intensity * 0.3));
+      const g = Math.round(180 + intensity * 75);
+      const b = Math.round(50 + intensity * 205);
+      const bgAlpha = 0.15 + intensity * 0.85;
+      const borderAlpha = 0.35 + intensity * 0.65;
+      return {
+        background: `linear-gradient(135deg, rgba(255,245,210,${0.8 + intensity * 0.2}) 0%, rgba(${r},${g},${b},${bgAlpha}) 100%)`,
+        borderColor: `rgba(${Math.round(255 * (1 - intensity * 0.2))},${Math.round(180 + intensity * 60)},${Math.round(50 + intensity * 180)},${borderAlpha})`,
+        color: '#000000',
+        boxShadow: intensity > 0.6 ? '0 12px 28px rgba(200,100,0,0.25)' : '0 6px 14px rgba(200,100,0,0.12)',
+      };
+    }
+  };
 
   if (error) {
     return (
@@ -219,42 +193,74 @@ export default function InventoryHeatmap() {
     );
   }
 
-  if (!heatmapData) {
-    return null;
+  if (loading || !heatmapData) {
+    return (
+      <div className="w-full flex items-center justify-center bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-8 min-h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading inventory matrix...</p>
+        </div>
+      </div>
+    );
   }
-
-  const { total_products } = heatmapData;
+  const { total_products, category, purity } = heatmapData;
+  const gridColumns = `140px repeat(${brands.length || 4}, minmax(110px, 1fr))`;
 
   return (
-    <div className="heatmap-section w-full bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-2xl p-4 sm:p-6 md:p-8">
+    <div
+      className={`heatmap-section w-full rounded-2xl p-4 sm:p-6 md:p-8 border shadow-[0_24px_80px_rgba(2,6,23,0.18)] ${styles.cardBg} ${styles.borderColor}`}
+      style={{
+        backgroundImage: isDarkMode
+          ? 'radial-gradient(circle at top left, rgba(251,191,36,0.10), transparent 28%), linear-gradient(135deg, #0b1220 0%, #101827 45%, #1f2937 100%)'
+          : 'radial-gradient(circle at top left, rgba(217,119,6,0.08), transparent 30%), linear-gradient(135deg, #fffaf1 0%, #f8f2e7 46%, #ede4d2 100%)',
+      }}
+    >
       {/* Header */}
       <div className="mb-5 sm:mb-8">
-        <h2 className="heatmap-title text-xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-6">
-          📊 Inventory Matrix Heatmap
+        <h2 className={`heatmap-title text-xl sm:text-3xl font-bold mb-3 sm:mb-6 tracking-tight ${styles.textMain}`}>
+           Inventory Matrix Heatmap
         </h2>
+        <p className={`text-sm mb-4 ${styles.textMuted}`}>
+          Category: <span className={`font-semibold ${isDarkMode ? 'text-amber-200' : 'text-amber-700'}`}>{category}</span> • Purity: <span className={`font-semibold ${isDarkMode ? 'text-amber-200' : 'text-amber-700'}`}>{purity}</span>
+        </p>
 
         {/* Category Dropdown */}
         <div className="heatmap-controls flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center">
-          <label htmlFor="category-select" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          <label htmlFor="category-select" className={`text-sm font-semibold ${styles.textMain}`}>
             Select Category:
           </label>
           <select
             id="category-select"
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full sm:w-auto min-h-11 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer transition-all"
+            className={`w-full sm:w-auto min-h-11 px-4 py-3 rounded-lg border shadow-inner shadow-black/10 focus:ring-2 focus:ring-amber-400 focus:border-transparent cursor-pointer transition-all backdrop-blur ${isDarkMode ? 'border-white/10 bg-slate-950/70 text-slate-100' : 'border-amber-200/60 bg-white/80 text-stone-900'}`}
           >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+            {categoriesObj.map((cat) => (
+              <option key={cat.value} value={cat.value}>
+                {cat.label}
               </option>
             ))}
           </select>
 
+          {/* Purity selector */}
+          <label htmlFor="purity-select" className={`text-sm font-semibold ml-0 sm:ml-4 ${styles.textMain}`}>
+            Purity:
+          </label>
+          <select
+            id="purity-select"
+            value={selectedPurity}
+            onChange={(e) => setSelectedPurity(e.target.value)}
+            className={`w-full sm:w-auto min-h-11 px-4 py-3 rounded-lg border shadow-inner shadow-black/10 focus:ring-2 focus:ring-amber-400 focus:border-transparent cursor-pointer transition-all backdrop-blur ${isDarkMode ? 'border-white/10 bg-slate-950/70 text-slate-100' : 'border-amber-200/60 bg-white/80 text-stone-900'}`}
+          >
+            {purityOrder.filter((p) => availablePurities.includes(p)).map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+
           {/* Stats */}
-          <div className="ml-0 sm:ml-auto text-sm text-gray-600 dark:text-gray-400">
+          <div className={`ml-0 sm:ml-auto text-sm ${styles.textMuted}`}>
             <p>
-              <span className="font-semibold text-amber-600 dark:text-amber-400">
+              <span className={`font-semibold ${isDarkMode ? 'text-amber-300' : 'text-amber-700'}`}>
                 {total_products}
               </span>{' '}
               products
@@ -264,41 +270,79 @@ export default function InventoryHeatmap() {
       </div>
 
       {/* Heatmap */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 sm:p-6 overflow-hidden">
-        <div
-          ref={plotDivRef}
-          className="heatmap-chart"
-          style={{ width: '100%', height: isMobile ? '420px' : '600px' }}
-        ></div>
+      <div className={`rounded-2xl p-3 sm:p-6 overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${isDarkMode ? 'border border-white/10 bg-slate-950/55' : 'border border-amber-100 bg-white/70'}`}>
+        <div className="overflow-x-auto">
+          <div className="min-w-190">
+            <div
+              className="grid gap-2 mb-2"
+              style={{ gridTemplateColumns: gridColumns }}
+            >
+              <div className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-2 py-3" />
+              {brands.map((brand) => (
+                <div key={brand} className={`text-center text-sm sm:text-base font-semibold px-2 py-3 rounded-lg border shadow-[0_8px_20px_rgba(15,23,42,0.18)] ${isDarkMode ? 'text-amber-50 bg-linear-to-b from-slate-800/95 to-slate-900/95 border-amber-200/10' : 'text-stone-800 bg-linear-to-b from-amber-50 to-stone-100 border-amber-200/50'}`}>
+                  {brand}
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              {weightRanges.map((rangeLabel, rowIndex) => (
+                <div
+                  key={rangeLabel}
+                  className="grid gap-2"
+                  style={{ gridTemplateColumns: gridColumns }}
+                >
+                  <div className={`flex items-center justify-end pr-2 text-xs sm:text-sm font-medium ${styles.textMuted}`}>
+                    {rangeLabel}
+                  </div>
+                  {brands.map((brand, colIndex) => {
+                    const count = matrix?.[rowIndex]?.[colIndex] || 0;
+                    return (
+                      <div
+                        key={`${rangeLabel}-${brand}`}
+                        className="min-h-16 sm:min-h-20 rounded-xl border flex flex-col items-center justify-center text-center px-2 py-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_18px_36px_rgba(15,23,42,0.22)]"
+                        style={cellStyle(count)}
+                        title={`${brand} • ${rangeLabel} • ${count} products`}
+                      >
+                        <div className="text-lg sm:text-2xl font-bold leading-none">{count}</div>
+                        <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide mt-1 opacity-90">pcs</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Legend */}
-      <div className="heatmap-legend mt-5 sm:mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 text-sm text-gray-600 dark:text-gray-400">
+      {/* <div className={`heatmap-legend mt-5 sm:mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 text-sm ${styles.textMuted}`}>
         <div>
-          <p className="font-semibold text-gray-900 dark:text-white mb-2">📍 How to Read</p>
+          <p className={`font-semibold mb-2 ${styles.textMain}`}>📍 How to Read</p>
           <ul className="list-disc list-inside space-y-1">
-            <li>X-axis: Purity levels (14K, 18K, 22K, 24K)</li>
+            <li>X-axis: Brands (Tanishq, Malabar, Kalyan, Senco)</li>
             <li>Y-axis: Weight ranges (in grams)</li>
             <li>Color intensity: Product availability</li>
           </ul>
         </div>
         <div>
-          <p className="font-semibold text-gray-900 dark:text-white mb-2">🎨 Interaction</p>
+          <p className={`font-semibold mb-2 ${styles.textMain}`}>🎨 Interaction</p>
           <ul className="list-disc list-inside space-y-1">
             <li>Hover over cells to see exact counts</li>
             <li>Use dropdown to switch categories</li>
-            <li>Pinch/zoom on touch devices for details</li>
+            <li>Use the purity selector to filter the inventory slice</li>
           </ul>
         </div>
         <div>
-          <p className="font-semibold text-gray-900 dark:text-white mb-2">💡 Tips</p>
+          <p className={`font-semibold mb-2 ${styles.textMain}`}>💡 Tips</p>
           <ul className="list-disc list-inside space-y-1">
             <li>Brighter colors = more products</li>
             <li>Darker colors = fewer products</li>
-            <li>Use toolbar for export/screenshots</li>
+            <li>This version works without Plotly or external scripts</li>
           </ul>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

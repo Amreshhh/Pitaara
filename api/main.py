@@ -11,6 +11,7 @@ import math
 import re
 import time
 import motor.motor_asyncio
+from pymongo import MongoClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
 from email.message import EmailMessage
@@ -190,6 +191,7 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins, # Changed from ["*"] to origins
+    allow_origin_regex=r"https://pitaara-.*\.vercel\.app", # Allow all vercel preview URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -230,20 +232,25 @@ def _normalize_category(frontend_category: str) -> str:
     """
     if not frontend_category:
         return frontend_category
-    
+
+    raw = str(frontend_category).strip()
+    lowered = raw.lower()
+
     # Mapping from frontend IDs to database category names
     category_map = {
-        'Band or Plain Ring': 'Band or Plain Ring',
-        'Hoops': 'Hoops',
-        # Add other mappings here if needed in future
+        'band or plain ring': 'Band or Plain Ring',
+        'band_or_plain_ring': 'Band or Plain Ring',
+        'band(plain ring)': 'Band or Plain Ring',
+        'hoops': 'Hoops',
+        'hoops(a type of bali)': 'Hoops',
     }
-    
-    # If it's a known frontend ID, return the database category name
-    if frontend_category in category_map:
-        return category_map[frontend_category]
+
+    # If it's a known frontend ID variant, return the database category name
+    if lowered in category_map:
+        return category_map[lowered]
     
     # Otherwise return as-is (for regular categories like 'chain', 'ring', etc.)
-    return frontend_category
+    return raw
 
 
 def _escape_regex(text: str) -> str:
@@ -859,24 +866,111 @@ async def calculate_price(req: CalculatorRequest):
 import json
 from pathlib import Path
 
-# Load inventory matrix data at startup
-INVENTORY_DATA_PATH = Path(__file__).parent.parent / ".archive" / "backend" / "inventory_matrix_data.json"
+# Load inventory data from Mongo collection at startup
+HEATMAP_COLLECTION = "Inventory_heatmap"
+
+
+def _load_heatmap_docs_from_mongo():
+    """Read heatmap source documents from MongoDB using a sync client."""
+    mongo_client = None
+    try:
+        mongo_client = MongoClient(MONGO_URI)
+        mongo_db = mongo_client["jewelry_database"]
+        collection = mongo_db[HEATMAP_COLLECTION]
+        docs = list(collection.find({}, {"_id": 0}))
+        print(f"✅ Loaded {len(docs)} heatmap documents from Mongo collection: {HEATMAP_COLLECTION}")
+        return docs
+    except Exception as e:
+        print(f"❌ Could not load heatmap docs from Mongo: {e}")
+        return []
+    finally:
+        if mongo_client is not None:
+            mongo_client.close()
 
 def load_inventory_data():
-    """Load inventory matrix data from JSON file"""
+    """Load flattened inventory matrix records from Mongo heatmap collection."""
     try:
-        if INVENTORY_DATA_PATH.exists():
-            with open(INVENTORY_DATA_PATH, 'r') as f:
-                data = json.load(f)
-                print(f"✅ Loaded {len(data)} inventory items from {INVENTORY_DATA_PATH}")
-                return data
-        print(f"⚠️ Inventory data file not found at: {INVENTORY_DATA_PATH}")
-        return []
+        docs = _load_heatmap_docs_from_mongo()
+        flattened = []
+
+        def _collect_records(node):
+            if isinstance(node, list):
+                for item in node:
+                    _collect_records(item)
+                return
+
+            if not isinstance(node, dict):
+                return
+
+            if {
+                "category",
+                "purity",
+                "label",
+                "product_count",
+            }.issubset(node.keys()):
+                flattened.append(node)
+                return
+
+            for value in node.values():
+                _collect_records(value)
+
+        _collect_records(docs)
+        print(f"✅ Loaded {len(flattened)} flattened inventory items from Mongo")
+        return flattened
     except Exception as e:
         print(f"❌ Could not load inventory data: {e}")
         return []
 
 INVENTORY_DATA = load_inventory_data()
+
+
+def load_brand_inventory_data():
+    try:
+        data = _load_heatmap_docs_from_mongo()
+        # Expecting docs like {"malabar": [...]} and similar brand buckets.
+        # Normalize into a dict: { brand_lower: [items...] }
+        brand_map = {}
+        for entry in data:
+            if not isinstance(entry, dict):
+                continue
+            for k, v in entry.items():
+                try:
+                    items = []
+
+                    def _collect_records(node):
+                        if isinstance(node, list):
+                            for item in node:
+                                _collect_records(item)
+                            return
+
+                        if not isinstance(node, dict):
+                            return
+
+                        if {
+                            "category",
+                            "purity",
+                            "label",
+                            "product_count",
+                        }.issubset(node.keys()):
+                            items.append(node)
+                            return
+
+                        for value in node.values():
+                            _collect_records(value)
+
+                    _collect_records(v if isinstance(v, list) else [])
+                    brand_map[str(k).strip().lower()] = items
+                except Exception:
+                    continue
+
+        print(f"✅ Loaded brand inventory for {len(brand_map)} brands from Mongo")
+        return brand_map
+    except Exception as e:
+        print(f"❌ Could not load brand inventory data: {e}")
+        return {}
+
+
+BRAND_INVENTORY = load_brand_inventory_data()
 
 
 def get_inventory_categories_list():
@@ -998,6 +1092,123 @@ async def get_inventory_matrix(category: str):
         print(f"❌ Error in get_inventory_matrix: {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error fetching inventory matrix: {str(e)}")
+
+
+@app.get("/api/inventory-heatmap")
+async def get_inventory_heatmap(category: str = None, purity: str = None):
+    """
+    Returns a brands (x) × weight_ranges (y) matrix for a given category and purity.
+    Query params:
+      - category (required): frontend category name
+      - purity (optional): purity like '22K' or '18K'
+    """
+    try:
+        if not BRAND_INVENTORY:
+            raise HTTPException(status_code=404, detail="Brand inventory not available on server")
+
+        if not category:
+            raise HTTPException(status_code=400, detail="Missing 'category' query parameter")
+
+        requested_category = category.strip()
+        # Use the requested category as-is. The source inventory now contains
+        # a dedicated "Band or Plain Ring" category — do not remap it here.
+        resolved_category = requested_category
+        requested_purity = purity.strip() if purity else None
+
+        # Preferred brand order for display
+        preferred_brands = ["tanishq", "malabar", "kalyan", "senco"]
+        # use available brands from data but keep preferred order first
+        available_brands = [b for b in preferred_brands if b in BRAND_INVENTORY]
+        # append any remaining brands
+        for b in sorted(BRAND_INVENTORY.keys()):
+            if b not in available_brands:
+                available_brands.append(b)
+
+        # Collect available purities and all weight labels across brands for this category
+        allowed_purity_order = ["24K", "22K", "14K", "18K"]
+        available_purities = []
+        for candidate_purity in allowed_purity_order:
+            has_products = any(
+                int(item.get("product_count", 0) or 0) > 0
+                for brand in available_brands
+                for item in BRAND_INVENTORY.get(brand, [])
+                if str(item.get("category", "")).strip().lower() == resolved_category.strip().lower()
+                and str(item.get("purity", "")).strip() == candidate_purity
+            )
+            if has_products:
+                available_purities.append(candidate_purity)
+
+        weight_set = []
+        weight_seen = set()
+        for brand in available_brands:
+            items = BRAND_INVENTORY.get(brand, [])
+            for it in items:
+                try:
+                    if str(it.get("category", "")).strip().lower() != resolved_category.strip().lower():
+                        continue
+                    if requested_purity and str(it.get("purity", "")).strip() != requested_purity:
+                        continue
+                    label = it.get("label") or it.get("value")
+                    if label and label not in weight_seen:
+                        weight_seen.add(label)
+                        weight_set.append(label)
+                except Exception:
+                    continue
+
+        if not weight_set:
+            return {
+                "status": "success",
+                "category": requested_category,
+                "purity": requested_purity,
+                "brands": [b.capitalize() for b in available_brands],
+                "weight_ranges": [],
+                "matrix": [],
+                "total_products": 0,
+                "available_purities": available_purities,
+            }
+
+        # Sort weight_set heuristically by parsing numeric lower bound
+        def parse_lower(label):
+            try:
+                m = re.search(r"(\d+)", str(label))
+                if m:
+                    return int(m.group(1))
+            except Exception:
+                pass
+            return 0
+
+        weight_ranges = sorted(weight_set, key=parse_lower)
+
+        # Build matrix: rows = weight_ranges, cols = available_brands
+        matrix = []
+        total = 0
+        for w in weight_ranges:
+            row = []
+            for brand in available_brands:
+                items = BRAND_INVENTORY.get(brand, [])
+                found = next((it for it in items if (it.get("label") == w or it.get("value") == w) and str(it.get("category", "")).strip().lower() == resolved_category.strip().lower() and (not requested_purity or str(it.get("purity", "")).strip() == requested_purity)), None)
+                cnt = int(found.get("product_count", 0)) if found else 0
+                row.append(cnt)
+                total += cnt
+            matrix.append(row)
+
+        return {
+            "status": "success",
+            "category": requested_category,
+            "purity": requested_purity,
+            "brands": [b.capitalize() for b in available_brands],
+            "weight_ranges": weight_ranges,
+            "matrix": matrix,
+            "total_products": total,
+            "available_purities": available_purities
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in get_inventory_heatmap: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error fetching inventory heatmap: {str(e)}")
 
 
 @app.get("/api/inventory-categories")

@@ -12,6 +12,7 @@ import {
   InventoryHeatmap,
   Disclaimer,
 } from '@/components';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useLiveRates } from '@/hooks/useLiveRates';
 import { useGoldCalculator } from '@/hooks/useGoldCalculator';
 import { CATEGORIES, SUBCATEGORIES, COIN_WEIGHT_OPTIONS } from '@/lib/constants';
@@ -20,7 +21,14 @@ import { getThemeStyles } from '@/lib/utils';
 // File ke top par ise replace kar dijiye
 const normalizeCategoryId = (value) => {
   if (typeof value !== 'string') return ''; // Agar string nahi hai toh empty return kar do
-  return value
+  const trimmed = value.trim();
+  const lowered = trimmed.toLowerCase();
+
+  // Preserve canonical IDs used by SUBCATEGORIES and calculator payload
+  if (lowered === 'hoops' || lowered === 'hoops(a type of bali)') return 'Hoops';
+  if (lowered === 'band or plain ring' || lowered === 'band(plain ring)') return 'Band or Plain Ring';
+
+  return trimmed
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
@@ -90,6 +98,7 @@ export default function App() {
   const [inputsDirty, setInputsDirty] = useState(false);
   const [apiCategories, setApiCategories] = useState(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [isHeatmapMinimized, setIsHeatmapMinimized] = useState(true);
   const estimatorRef = useRef(null);
 
   // 🔥 Destructure cache status and last updated time
@@ -179,11 +188,11 @@ export default function App() {
   };
 
   const handleFind = () => {
-    setIsCalculating(true);
-    setCalcTrigger((t) => t + 1);
     setInputsDirty(false);
+    setCalcTrigger((t) => t + 1);
+    setIsCalculating(true);
     // Simulate calculation time - turn off after results come in
-    setTimeout(() => setIsCalculating(false), 1000);
+    setTimeout(() => setIsCalculating(false), 800);
   };
 
   const handleBrandSelect = (brand) => {
@@ -270,9 +279,47 @@ export default function App() {
           />
 
           {/* 🔥 Inventory Matrix Heatmap Section */}
-          {/* <div className="mt-16 sm:mt-20 pt-10 sm:pt-12 border-t border-gray-300 dark:border-gray-700">
-            <InventoryHeatmap />
-          </div> */}
+          <div className="mt-16 sm:mt-20 pt-10 sm:pt-12 border-t border-gray-300 dark:border-gray-700 overflow-hidden">
+            {/* Enhanced Description Section */}
+            <div className={`mb-6 p-4 rounded-xl border ${
+              isDarkMode
+                ? 'bg-amber-950/30 border-amber-800/50'
+                : 'bg-amber-50/40 border-amber-200/50'
+            }`}>
+              <p className={`mb-2 text-lg font-semibold ${styles.textMain}`}>📊 Inventory blueprint of all listed brands</p>
+              <p className={`text-sm font-medium ${styles.textMuted}`}>Note: Data displayed is Highly accurate</p>
+            </div>
+            <div className="mb-6 border-b border-gray-300 dark:border-gray-700"></div>
+
+            {/* Minimize Toggle Button */}
+            <button
+              onClick={() => setIsHeatmapMinimized(!isHeatmapMinimized)}
+              className={`flex items-center gap-2 mb-4 px-4 py-2 rounded-lg font-medium transition-all duration-200 ease-out ${
+                isDarkMode
+                  ? 'bg-linear-to-r from-amber-700 to-amber-800 hover:from-amber-600 hover:to-amber-700 text-white'
+                  : 'bg-linear-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white'
+              }`}
+            >
+              {isHeatmapMinimized ? (
+                <>
+                  <ChevronDown size={18} />
+                  <span>Expand Inventory Matrix</span>
+                </>
+              ) : (
+                <>
+                  <ChevronUp size={18} />
+                  <span>Collapse Inventory Matrix</span>
+                </>
+              )}
+            </button>
+
+            {/* Collapsible Heatmap Container */}
+            {!isHeatmapMinimized && (
+              <div className="mt-4 animation-fade-in">
+                <InventoryHeatmap isDarkMode={isDarkMode} />
+              </div>
+            )}
+          </div>
 
           <FeedbackSection isDarkMode={isDarkMode} />
 

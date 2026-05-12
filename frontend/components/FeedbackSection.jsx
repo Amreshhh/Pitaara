@@ -149,7 +149,7 @@ export const FeedbackSection = ({ isDarkMode }) => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-white font-semibold shadow-lg transition-colors hover:bg-amber-600"
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-amber-600 px-5 py-3 text-white font-semibold shadow-lg transition-colors hover:bg-amber-700"
           >
             <Send size={18} />
             {isSubmitting ? 'Sending...' : 'Send Feedback'}
