@@ -293,32 +293,25 @@ export default function App() {
 
             {/* Minimize Toggle Button */}
             <button
-              onClick={() => setIsHeatmapMinimized(!isHeatmapMinimized)}
-              className={`flex items-center gap-2 mb-4 px-4 py-2 rounded-lg font-medium transition-all duration-200 ease-out ${
+              onClick={() => setIsHeatmapMinimized((s) => !s)}
+              className={`flex items-center gap-3 mb-4 px-4 py-2 rounded-lg font-medium ${
                 isDarkMode
                   ? 'bg-linear-to-r from-amber-700 to-amber-800 hover:from-amber-600 hover:to-amber-700 text-white'
                   : 'bg-linear-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white'
-              }`}
+              } btn-press-animate`}
             >
-              {isHeatmapMinimized ? (
-                <>
-                  <ChevronDown size={18} />
-                  <span>Expand Inventory Matrix</span>
-                </>
-              ) : (
-                <>
-                  <ChevronUp size={18} />
-                  <span>Collapse Inventory Matrix</span>
-                </>
-              )}
+              <span className={`inline-block transform transition-transform duration-300 ${isHeatmapMinimized ? '' : 'rotate-180'}`}>
+                <ChevronDown size={18} />
+              </span>
+              <span>{isHeatmapMinimized ? 'Expand Inventory Matrix' : 'Collapse Inventory Matrix'}</span>
             </button>
 
-            {/* Collapsible Heatmap Container */}
-            {!isHeatmapMinimized && (
-              <div className="mt-4 animation-fade-in">
+            {/* Collapsible Heatmap Container (always present, toggles open class) */}
+            <div className={`mt-4 heatmap-collapsible ${isHeatmapMinimized ? '' : 'open'}`}>
+              <div className="animation-fade-in">
                 <InventoryHeatmap isDarkMode={isDarkMode} />
               </div>
-            )}
+            </div>
           </div>
 
           <FeedbackSection isDarkMode={isDarkMode} />

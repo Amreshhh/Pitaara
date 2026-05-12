@@ -80,52 +80,76 @@ html {
   animation: cardFadeUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Modal backdrop fade */
-@keyframes backdropFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+/* Modal backdrop / scale animations for smoother brand summary entry */
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.animation-backdrop {
-  animation: backdropFadeIn 0.3s ease-out forwards;
+@keyframes modalScaleIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Modal entrance slide up with scale */
-@keyframes modalSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.modal-backdrop {
+  animation: modalFadeIn 260ms cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
 }
 
-.animation-modal {
-  animation: modalSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+.modal-scale-in {
+  animation: modalScaleIn 320ms cubic-bezier(0.2, 0, 0, 1) forwards;
+  transform-origin: center center;
 }
 
-/* Content stagger fade-in */
-@keyframes contentFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes modalScaleOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(10px) scale(0.985); }
 }
 
-.animation-content {
-  animation: contentFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+@keyframes modalFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
+.modal-backdrop-exit {
+  animation: modalFadeOut 220ms ease forwards;
+}
+
+.modal-scale-out {
+  animation: modalScaleOut 220ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes panelEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.summary-panel-enter {
+  animation: panelEnter 260ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+/* small helper to avoid abrupt focus outlines during animation */
+.modal-scale-in * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Collapsible heatmap helper - smooth open/close using max-height+opacity */
+.heatmap-collapsible {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 420ms cubic-bezier(0.4, 0, 0.2, 1), opacity 260ms ease;
+}
+.heatmap-collapsible.open {
+  max-height: 1200px; /* large enough to contain heatmap */
+  opacity: 1;
+}
+
+.btn-press-animate {
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-press-animate:active {
+  transform: scale(0.97);
+}
 body {
   background: var(--background);
   color: var(--foreground);

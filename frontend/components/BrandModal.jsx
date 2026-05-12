@@ -3,17 +3,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, Title, Tooltip, Legend } from 'chart.js';
-import { Scatter } from 'react-chartjs-2';
 import { getThemeStyles } from '@/lib/utils';
-
-ChartJS.register(CategoryScale, LinearScale, PointElement, Title, Tooltip, Legend);
 
 export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext }) => {
   const styles = getThemeStyles(isDarkMode);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState('');
+  const [isClosing, setIsClosing] = useState(false);
   const hasBrand = Boolean(selectedBrand && selectedBrand.breakdown);
   const isCoinCategory = queryContext?.category === 'coin';
 
@@ -64,6 +61,12 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
     }
     return selectedBrand.name;
   }, [selectedBrand?.name]);
+
+  useEffect(() => {
+    if (hasBrand) {
+      setIsClosing(false);
+    }
+  }, [hasBrand, selectedBrand?.name]);
 
   useEffect(() => {
     if (!hasBrand || !apiBrand) {
@@ -129,29 +132,6 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
   const distribution = summary?.frequency_distribution || [];
   const coinWeightSummary = summary?.coin_weight_summary || [];
 
-  const xDomain = useMemo(() => {
-    if (!scatterData.length) {
-      if (isCoinCategory && selectedRange) {
-        return [selectedRange.min - 0.2, selectedRange.max + 0.2];
-      }
-      return [targetWeight - 1, targetWeight + 1];
-    }
-    const weights = scatterData.map((point) => point.weight);
-    const min = Math.min(...weights);
-    const max = Math.max(...weights);
-    return [Math.floor(min * 10) / 10 - 0.2, Math.ceil(max * 10) / 10 + 0.2];
-  }, [isCoinCategory, scatterData, selectedRange, targetWeight]);
-
-  const yDomain = useMemo(() => {
-    if (!scatterData.length) {
-      return [0, 30];
-    }
-    const values = scatterData.map((point) => point.mc);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    return [Math.max(0, Math.floor(min - 2)), Math.ceil(max + 2)];
-  }, [scatterData]);
-
   // Compute a local, authoritative breakdown from API values to ensure UI consistency
   const computedBreakdown = useMemo(() => {
     const appliedRate = Number(selectedBrand?.breakdown?.appliedRate) || 0;
@@ -189,14 +169,22 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
   // Derive the lowest making charge percentage (for display as percent)
   const mcPercentage = (computedBreakdown.makingPercent * 100).toFixed(1);
 
+  const handleClose = useCallback(() => {
+    if (isClosing) {
+      return;
+    }
+    setIsClosing(true);
+    window.setTimeout(onClose, 220);
+  }, [isClosing, onClose]);
+
   if (!hasBrand) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-stone-950/60 backdrop-blur-sm animation-backdrop">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-stone-950/60 backdrop-blur-sm ${isClosing ? 'modal-backdrop-exit' : 'modal-backdrop'}`}>
       <div
-        className={`rounded-none sm:rounded-3xl shadow-2xl w-full h-full sm:h-auto sm:max-h-[92vh] max-w-6xl overflow-hidden animation-modal border ${styles.bgMain} ${styles.borderColor}`}
+        className={`rounded-none sm:rounded-3xl shadow-2xl w-full h-full sm:h-auto sm:max-h-[92vh] max-w-6xl overflow-hidden border ${isClosing ? 'modal-scale-out' : 'modal-scale-in'} ${styles.bgMain} ${styles.borderColor}`}
       >
         <div className="relative p-5 sm:p-8 overflow-hidden border-b border-stone-800/70">
           <div className={`absolute inset-0 bg-linear-to-br opacity-20 ${selectedBrand.accentColor}`}></div>
@@ -208,7 +196,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
               </p>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className={`p-2 rounded-full transition-colors ${
                 isDarkMode ? 'bg-stone-900 hover:bg-stone-800' : 'bg-white hover:bg-stone-100'
               }`}
@@ -221,27 +209,20 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
 
         <div className="px-4 sm:px-8 pb-6 sm:pb-8 pt-5 sm:pt-6 space-y-5 sm:space-y-6 h-[calc(100%-96px)] sm:h-auto max-h-[calc(100vh-96px)] sm:max-h-[78vh] overflow-y-auto">
           {loading ? (
-            <div className={`rounded-2xl border p-8 text-sm animation-content ${styles.borderColor} ${styles.textMuted}`}
-              style={{ animationDelay: '0.1s' }}
-            >
+            <div className={`summary-panel-enter rounded-2xl border p-8 text-sm ${styles.borderColor} ${styles.textMuted}`}>
               Loading brand summary...
             </div>
           ) : null}
 
           {!loading && error ? (
-            <div 
-              className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-400 animation-content"
-              style={{ animationDelay: '0.1s' }}
-            >
+            <div className="summary-panel-enter rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-400">
               {error}
             </div>
           ) : null}
 
           {!loading && !error ? (
-            <>
-              <div className={`rounded-2xl border overflow-x-auto animation-content ${styles.borderColor}`}
-                style={{ animationDelay: '0.15s' }}
-              >
+            <div className="summary-panel-enter space-y-5 sm:space-y-6">
+              <div className={`rounded-2xl border overflow-x-auto ${styles.borderColor}`}>
                 <table className="w-full min-w-140 text-xs sm:text-sm">
                   <thead>
                     <tr className={`border-b ${styles.borderColor} ${isDarkMode ? 'bg-stone-900/50' : 'bg-stone-50'}`}>
@@ -321,7 +302,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
 
               {/* Remainder of modal graphs and distributions... */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className={`rounded-xl border p-4 animation-content ${styles.borderColor}`} style={{ animationDelay: '0.2s' }}>
+                <div className={`rounded-xl border p-4 ${styles.borderColor}`}>
                   <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Target</p>
                   <p className="text-2xl font-semibold mt-1">
                     {isCoinCategory && summary?.target_range
@@ -329,101 +310,50 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                       : `${summary?.target_weight}g`}
                   </p>
                 </div>
-                <div className={`rounded-xl border p-4 animation-content ${styles.borderColor}`} style={{ animationDelay: '0.25s' }}>
+                <div className={`rounded-xl border p-4 ${styles.borderColor}`}>
                   <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Range</p>
                   <p className="text-2xl font-semibold mt-1">
                     {summary?.searched_range?.min}g - {summary?.searched_range?.max}g
                   </p>
                 </div>
-                <div className={`rounded-xl border p-4 animation-content ${styles.borderColor}`} style={{ animationDelay: '0.3s' }}>
+                <div className={`rounded-xl border p-4 ${styles.borderColor}`}>
                   <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Items</p>
                   <p className="text-2xl font-semibold mt-1">{summary?.total_items || 0}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <div className={`rounded-2xl border p-4 animation-content ${styles.borderColor}`} style={{ animationDelay: '0.35s' }}>
-                  <h4 className="text-lg font-semibold mb-3">Weight vs Making Charge</h4>
-                  <div className="h-80 flex items-center justify-center">
-                    {scatterData && scatterData.length > 0 ? (
-                      <Scatter
-                        data={{
-                          datasets: [
-                            {
-                              label: 'Products',
-                              data: scatterData.map((point) => ({ x: point.weight, y: point.mc })),
-                              backgroundColor: isDarkMode ? 'rgba(96, 165, 250, 0.6)' : 'rgba(37, 99, 235, 0.6)',
-                              borderColor: isDarkMode ? 'rgba(59, 130, 246, 1)' : 'rgba(29, 78, 216, 1)',
-                              borderWidth: 1.5,
-                              pointRadius: 5,
-                              pointHoverRadius: 7,
-                              tension: 0.1,
-                            },
-                          ],
-                        }}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          plugins: {
-                            legend: {
-                              display: true,
-                              labels: {
-                                color: isDarkMode ? '#d6d3d1' : '#374151',
-                                font: { size: 12, weight: 500 },
-                              },
-                            },
-                            tooltip: {
-                              backgroundColor: isDarkMode ? '#1c1917' : '#ffffff',
-                              titleColor: isDarkMode ? '#f5f5f4' : '#000000',
-                              bodyColor: isDarkMode ? '#d6d3d1' : '#374151',
-                              borderColor: isDarkMode ? '#44403c' : '#d6d3d1',
-                              borderWidth: 1,
-                              padding: 8,
-                              displayColors: false,
-                              callbacks: {
-                                label: function (context) {
-                                  return `Weight: ${context.parsed.x}g, MC: ${context.parsed.y}%`;
-                                },
-                              },
-                            },
-                          },
-                          scales: {
-                            x: {
-                              type: 'linear',
-                              position: 'bottom',
-                              title: {
-                                display: true,
-                                text: 'Weight (g)',
-                                color: isDarkMode ? '#d6d3d1' : '#374151',
-                                font: { size: 12, weight: 600 },
-                              },
-                              ticks: {
-                                color: isDarkMode ? '#d6d3d1' : '#374151',
-                              },
-                              grid: {
-                                color: isDarkMode ? '#2f2f35' : '#e5e7eb',
-                              },
-                            },
-                            y: {
-                              title: {
-                                display: true,
-                                text: 'Making Charge (%)',
-                                color: isDarkMode ? '#d6d3d1' : '#374151',
-                                font: { size: 12, weight: 600 },
-                              },
-                              ticks: {
-                                color: isDarkMode ? '#d6d3d1' : '#374151',
-                              },
-                              grid: {
-                                color: isDarkMode ? '#2f2f35' : '#e5e7eb',
-                              },
-                            },
-                          },
-                        }}
-                      />
-                    ) : (
-                      <p className={`text-sm ${styles.textMuted}`}>No weight/MC data available.</p>
-                    )}
+                <div className={`rounded-2xl border p-4 ${styles.borderColor}`}>
+                  <h4 className="text-lg font-semibold mb-3">Performance Snapshot</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
+                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Data points</p>
+                      <p className="text-2xl font-semibold mt-1">{scatterData.length || 0}</p>
+                    </div>
+                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
+                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Avg MC</p>
+                      <p className="text-2xl font-semibold mt-1">
+                        {scatterData.length
+                          ? `${(scatterData.reduce((sum, point) => sum + Number(point.mc || 0), 0) / scatterData.length).toFixed(1)}%`
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
+                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Weight range</p>
+                      <p className="text-lg font-semibold mt-1">
+                        {scatterData.length
+                          ? `${Math.min(...scatterData.map((point) => point.weight))}g - ${Math.max(...scatterData.map((point) => point.weight))}g`
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
+                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>MC range</p>
+                      <p className="text-lg font-semibold mt-1">
+                        {scatterData.length
+                          ? `${Math.min(...scatterData.map((point) => point.mc))}% - ${Math.max(...scatterData.map((point) => point.mc))}%`
+                          : 'N/A'}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -502,7 +432,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                   </table>
                 </div>
               </div>
-            </>
+            </div>
           ) : null}
 
           <div className="flex justify-end pt-2">
