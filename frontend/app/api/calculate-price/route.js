@@ -1,6 +1,6 @@
 export async function POST(request) {
   try {
-    const backendUrl = process.env. BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const payload = await request.text();
     const response = await fetch(`${backendUrl}/api/calculate-price`, {
       method: 'POST',
