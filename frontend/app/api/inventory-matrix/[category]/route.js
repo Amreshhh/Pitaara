@@ -1,7 +1,7 @@
 export async function GET(request, { params }) {
   try {
     const { category } = params;
-    const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const backendUrl = 'https://pitaara-xz2s-git-v2-development-amreshhhs-projects.vercel.app' || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const response = await fetch(
       `${backendUrl}/api/inventory-matrix/${encodeURIComponent(category)}`
     );

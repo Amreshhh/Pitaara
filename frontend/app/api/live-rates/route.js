@@ -1,6 +1,6 @@
 export async function GET() {
 	try {
-		const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL;
+		const backendUrl = 'https://pitaara-xz2s-git-v2-development-amreshhhs-projects.vercel.app' || process.env.NEXT_PUBLIC_API_URL;
 		if (!backendUrl) {
 			return Response.json(
 				{ error: 'Missing BACKEND_API_URL or NEXT_PUBLIC_API_URL' },
