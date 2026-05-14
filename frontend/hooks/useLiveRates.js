@@ -8,28 +8,43 @@ export const useLiveRates = () => {
   const [cacheStatus, setCacheStatus] = useState('loading');
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const normalizeLiveRates = (payload) => {
+  const normalizeLiveRates = (payload, cachedByBrand = {}) => {
     const rates = Array.isArray(payload?.rates) ? payload.rates : Array.isArray(payload) ? payload : null;
     if (!Array.isArray(rates) || !rates.length) {
       throw new Error('Invalid live rates payload');
     }
 
-    return rates.map((rate) => {
-      if (!rate || typeof rate !== 'object') {
-        throw new Error('Invalid live rates row');
+    // Process each row independently; on parse failure try to use cached value for that brand
+    const result = [];
+
+    for (const rate of rates) {
+      try {
+        if (!rate || typeof rate !== 'object') throw new Error('Invalid live rates row');
+
+        // Handle both old "Candere" and new "Kalyan" brand names (backward compatibility)
+        const brandName = rate.Brand === 'Candere' ? 'Kalyan' : rate.Brand;
+        const normalized = { ...rate, Brand: brandName };
+        const hasAnyNumericRate = ['24K', '22K', '18K', '14K'].some((key) => Number.isFinite(Number(normalized[key])));
+
+        if (!brandName || !hasAnyNumericRate) throw new Error('Unable to parse live rate values');
+
+        normalized._stale = false;
+        result.push(normalized);
+      } catch (e) {
+        // try fallback: use cached value for this brand if available
+        const maybeBrand = rate && rate.Brand ? (rate.Brand === 'Candere' ? 'Kalyan' : rate.Brand) : null;
+        if (maybeBrand && cachedByBrand[maybeBrand]) {
+          const cached = { ...cachedByBrand[maybeBrand], _stale: true };
+          result.push(cached);
+        } else {
+          // skip this brand entirely
+          console.warn('[useLiveRates] Skipping brand due to parse failure and no cached fallback', rate, e.message);
+        }
       }
+    }
 
-      // Handle both old "Candere" and new "Kalyan" brand names (backward compatibility)
-      const brandName = rate.Brand === 'Candere' ? 'Kalyan' : rate.Brand;
-      const normalized = { ...rate, Brand: brandName };
-      const hasAnyNumericRate = ['24K', '22K', '18K', '14K'].some((key) => Number.isFinite(Number(normalized[key])));
-
-      if (!brandName || !hasAnyNumericRate) {
-        throw new Error('Unable to parse live rate values');
-      }
-
-      return normalized;
-    });
+    if (!result.length) throw new Error('No usable live rates in payload');
+    return result;
   };
 
   useEffect(() => {
@@ -54,14 +69,40 @@ export const useLiveRates = () => {
 
         const data = await response.json();
         console.log('[useLiveRates] Received data:', data);
-        
-        const processedRates = normalizeLiveRates(data);
+
+        // read cached rates from localStorage (if any) to use as fallback for individual brands
+        let cachedMap = {};
+        try {
+          const raw = typeof window !== 'undefined' ? window.localStorage.getItem('cached_gold_rates') : null;
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const cachedRates = Array.isArray(parsed?.rates) ? parsed.rates : Array.isArray(parsed) ? parsed : null;
+            if (Array.isArray(cachedRates)) {
+              cachedRates.forEach((r) => {
+                if (r && r.Brand) cachedMap[r.Brand] = r;
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('[useLiveRates] Failed to read cached rates:', e);
+        }
+
+        const processedRates = normalizeLiveRates(data, cachedMap);
         console.log('[useLiveRates] Processed rates:', processedRates);
 
         if (isMounted) {
           setLiveRates(processedRates);
           setCacheStatus(data.cache_status || 'live');
           setLastUpdated(data.last_updated || new Date().toLocaleString());
+        }
+
+        // store processed rates into localStorage as a cache for fallbacks
+        try {
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem('cached_gold_rates', JSON.stringify({ rates: processedRates, last_updated: data.last_updated || new Date().toISOString() }));
+          }
+        } catch (e) {
+          console.warn('[useLiveRates] Failed to write cached rates:', e);
         }
 
         // After loading stored payload, call checker to see if any brand is missing

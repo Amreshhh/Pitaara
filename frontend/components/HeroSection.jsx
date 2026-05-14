@@ -140,7 +140,16 @@
                 liveRates.map((rateData, idx) => (
                   <div key={idx} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-stone-900/60 border-stone-800' : 'bg-white border-stone-100'}`}>
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-bold text-lg">{rateData.Brand}</h3>
+                      <h3 className="font-bold text-lg">
+                      {rateData._stale && rateData.Brand === 'Tanishq' ? (
+                        <span title="Today rate updating soon" className="inline-flex items-center gap-2">
+                          {rateData.Brand}
+                          <span className="text-[11px] text-amber-400">(updating)</span>
+                        </span>
+                      ) : (
+                        rateData.Brand
+                      )}
+                    </h3>
                       <span className={`text-[11px] uppercase tracking-[0.14em] ${styles.textMuted}`}>Per 1g</span>
                     </div>
 
@@ -189,7 +198,16 @@
                   ) : (
                     liveRates.map((rateData, index) => (
                       <tr key={index} className={`transition-colors hover:${isDarkMode ? 'bg-stone-800/40' : 'bg-white/80'}`}>
-                        <td className="px-4 py-4 md:px-8 md:py-6 font-serif text-lg md:text-xl font-medium">{rateData.Brand || 'Unknown'}</td>
+                        <td className="px-4 py-4 md:px-8 md:py-6 font-serif text-lg md:text-xl font-medium">
+                          {rateData._stale && rateData.Brand === 'Tanishq' ? (
+                            <span title="Today rate updating soon" className="inline-flex items-center gap-2">
+                              {rateData.Brand}
+                              <span className="text-[12px] text-amber-400">(updating)</span>
+                            </span>
+                          ) : (
+                            rateData.Brand || 'Unknown'
+                          )}
+                        </td>
                         <td className={`px-4 py-4 md:px-8 md:py-6 text-right text-lg md:text-xl font-bold ${isDarkMode ? 'text-amber-400' : 'text-amber-700'}`}>
                           ₹{rateData['24K']?.toLocaleString('en-IN') || 'N/A'}
                         </td>
