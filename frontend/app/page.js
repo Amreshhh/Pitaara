@@ -276,8 +276,8 @@ export default function App() {
           />
 
           {/* 🔥 Inventory Matrix Heatmap Section */}
-          <div className="mt-16 sm:mt-20 pt-10 sm:pt-12 border-t border-gray-300 dark:border-gray-700 overflow-hidden">
-            {/* Enhanced Description Section */}
+          {/* <div className="mt-16 sm:mt-20 pt-10 sm:pt-12 border-t border-gray-300 dark:border-gray-700 overflow-hidden">
+            Enhanced Description Section
             <div className={`mb-6 p-4 rounded-xl border ${
               isDarkMode
                 ? 'bg-amber-950/30 border-amber-800/50'
@@ -288,7 +288,7 @@ export default function App() {
             </div>
             <div className="mb-6 border-b border-gray-300 dark:border-gray-700"></div>
 
-            {/* Minimize Toggle Button */}
+            {/* Minimize Toggle Button 
             <button
               onClick={() => setIsHeatmapMinimized((s) => !s)}
               className={`flex items-center gap-3 mb-4 px-4 py-2 rounded-lg font-medium ${
@@ -303,13 +303,13 @@ export default function App() {
               <span>{isHeatmapMinimized ? 'Expand Inventory Matrix' : 'Collapse Inventory Matrix'}</span>
             </button>
 
-            {/* Collapsible Heatmap Container (always present, toggles open class) */}
+            {/* Collapsible Heatmap Container (always present, toggles open class) *
             <div className={`mt-4 heatmap-collapsible ${isHeatmapMinimized ? '' : 'open'}`}>
               <div className="animation-fade-in">
                 <InventoryHeatmap isDarkMode={isDarkMode} />
               </div>
             </div>
-          </div>
+          </div> */}
 
           <FeedbackSection isDarkMode={isDarkMode} />
 
