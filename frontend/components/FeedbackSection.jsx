@@ -43,23 +43,32 @@ export const FeedbackSection = ({ isDarkMode }) => {
       setStatusMessage('');
 
       try {
-        const response = await fetch('/api/feedback', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ name, contact, issue }),
-        });
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const endpoints = [`${baseUrl}/api/feedback`, `${baseUrl}/feedback`];
+        let lastError = null;
 
-        const result = await response.json();
+        for (const endpoint of endpoints) {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, contact, issue }),
+          });
 
-        if (!response.ok) {
-          throw new Error(result?.detail || 'Unable to send feedback');
+          const result = await response.json();
+
+          if (response.ok) {
+            setStatusMessage(result?.message || 'Feedback sent successfully.');
+            setFormState({ name: '', contact: '', issue: '' });
+            setErrorMessage('');
+            return;
+          }
+
+          lastError = result?.detail || 'Unable to send feedback';
         }
 
-        setStatusMessage(result?.message || 'Feedback sent successfully.');
-        setFormState({ name: '', contact: '', issue: '' });
-        setErrorMessage('');
+        throw new Error(lastError || 'Unable to send feedback');
       } catch (error) {
         setStatusMessage('');
         setErrorMessage(error.message || 'Failed to send feedback.');

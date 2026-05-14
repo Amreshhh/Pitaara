@@ -1,9 +1,17 @@
-export async function GET() {
+export async function GET(request) {
 	try {
-		const backendUrl = 'https://pitaara-xz2s-git-v2-development-amreshhhs-projects.vercel.app' || process.env.NEXT_PUBLIC_API_URL;
+		const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL;
 		if (!backendUrl) {
 			return Response.json(
 				{ error: 'Missing BACKEND_API_URL or NEXT_PUBLIC_API_URL' },
+				{ status: 500 }
+			);
+		}
+		const frontendHost = new URL(request.url).host;
+		const backendHost = new URL(backendUrl).host;
+		if (frontendHost === backendHost) {
+			return Response.json(
+				{ error: 'Misconfigured backend URL: frontend is calling itself. Set BACKEND_API_URL to backend project domain.' },
 				{ status: 500 }
 			);
 		}

@@ -1,14 +1,6 @@
 export async function GET(request) {
   try {
-    const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    const frontendHost = new URL(request.url).host;
-    const backendHost = new URL(backendUrl).host;
-    if (frontendHost === backendHost) {
-      return Response.json(
-        { error: 'Misconfigured backend URL: frontend is calling itself. Set BACKEND_API_URL to backend project domain.' },
-        { status: 500 }
-      );
-    }
+    const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:8000';
     const url = new URL(request.url);
     const search = url.search; // preserve query params (category, purity)
 

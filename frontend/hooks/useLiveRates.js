@@ -34,25 +34,35 @@ export const useLiveRates = () => {
 
   useEffect(() => {
     let retryTimer = null;
+    let isMounted = true;
 
     const scheduleRetry = (ms) => {
       if (retryTimer) clearTimeout(retryTimer);
       retryTimer = setTimeout(() => {
-        fetchRates();
+        if (isMounted) fetchRates();
       }, ms);
     };
 
     const fetchRates = async () => {
       try {
+        console.log('[useLiveRates] Fetching live rates...');
         const response = await fetch('/api/live-rates');
-        if (!response.ok) throw new Error('Network response was not ok');
+        
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}: ${response.statusText}`);
+        }
 
         const data = await response.json();
+        console.log('[useLiveRates] Received data:', data);
+        
         const processedRates = normalizeLiveRates(data);
+        console.log('[useLiveRates] Processed rates:', processedRates);
 
-        setLiveRates(processedRates);
-        setCacheStatus(data.cache_status || 'live');
-        setLastUpdated(data.last_updated || new Date().toLocaleString());
+        if (isMounted) {
+          setLiveRates(processedRates);
+          setCacheStatus(data.cache_status || 'live');
+          setLastUpdated(data.last_updated || new Date().toLocaleString());
+        }
 
         // After loading stored payload, call checker to see if any brand is missing
         try {
@@ -62,28 +72,35 @@ export const useLiveRates = () => {
             // If checker indicates missing brands or missing rates, retry after 5 minutes
             if (chkJson.needs_fetch === true || (Array.isArray(chkJson.missing_brands) && chkJson.missing_brands.length > 0)) {
               // Keep displaying stored payload; schedule retry in 5 minutes
+              console.log('[useLiveRates] Checker found missing data, scheduling retry in 5 min');
               scheduleRetry(5 * 60 * 1000);
             }
           }
         } catch (e) {
           // Checker failed — try again later
+          console.warn('[useLiveRates] Checker failed:', e);
           scheduleRetry(5 * 60 * 1000);
         }
       } catch (error) {
-        console.error('Failed to fetch live rates:', error);
-        setLiveRates([]);
-        setCacheStatus('error');
-        setLastUpdated(null);
+        console.error('[useLiveRates] Failed to fetch live rates:', error);
+        if (isMounted) {
+          setLiveRates([]);
+          setCacheStatus('error');
+          setLastUpdated(null);
+        }
         // On network error, retry after 5 minutes
         scheduleRetry(5 * 60 * 1000);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-
-      setLoading(false);
     };
 
     fetchRates();
 
     return () => {
+      isMounted = false;
       if (retryTimer) clearTimeout(retryTimer);
     };
   }, []);
