@@ -239,11 +239,13 @@ export default function InventoryHeatmap({ isDarkMode = false }) {
     );
   }
   const { total_products, category, purity } = heatmapData;
-  const gridColumns = `140px repeat(${brands.length || 4}, minmax(110px, 1fr))`;
+  const gridColumns = isMobile
+    ? `92px repeat(${brands.length || 4}, minmax(84px, 1fr))`
+    : `140px repeat(${brands.length || 4}, minmax(110px, 1fr))`;
 
   return (
     <div
-      className={`heatmap-section w-full rounded-2xl p-4 sm:p-6 md:p-8 border shadow-[0_24px_80px_rgba(2,6,23,0.18)] ${styles.cardBg} ${styles.borderColor}`}
+      className={`heatmap-section w-full rounded-2xl p-3 sm:p-6 md:p-8 border shadow-[0_24px_80px_rgba(2,6,23,0.18)] ${styles.cardBg} ${styles.borderColor}`}
       style={{
         backgroundImage: isDarkMode
           ? 'radial-gradient(circle at top left, rgba(251,191,36,0.10), transparent 28%), linear-gradient(135deg, #0b1220 0%, #101827 45%, #1f2937 100%)'
@@ -319,7 +321,7 @@ export default function InventoryHeatmap({ isDarkMode = false }) {
       </div>
 
       {/* Heatmap */}
-      <div className={`relative rounded-2xl p-3 sm:p-6 overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-300 ${loading ? 'opacity-90' : 'opacity-100'} ${isDarkMode ? 'border border-white/10 bg-slate-950/55' : 'border border-amber-100 bg-white/70'}`}>
+      <div className={`relative rounded-2xl p-2.5 sm:p-6 overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all duration-300 ${loading ? 'opacity-90' : 'opacity-100'} ${isDarkMode ? 'border border-white/10 bg-slate-950/55' : 'border border-amber-100 bg-white/70'}`}>
         {isRefreshing && (
           <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-stone-950/10 dark:bg-black/20 backdrop-blur-[1px] summary-panel-enter pointer-events-none">
             <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/80 px-4 py-2 shadow-lg dark:bg-slate-950/80 dark:text-stone-100">
@@ -334,9 +336,9 @@ export default function InventoryHeatmap({ isDarkMode = false }) {
               className="grid gap-2 mb-2"
               style={{ gridTemplateColumns: gridColumns }}
             >
-              <div className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-2 py-3" />
+              <div className="text-[10px] sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-1.5 py-2 sm:px-2 sm:py-3" />
               {brands.map((brand) => (
-                <div key={brand} className={`text-center text-sm sm:text-base font-semibold px-2 py-3 rounded-lg border shadow-[0_8px_20px_rgba(15,23,42,0.18)] ${isDarkMode ? 'text-amber-50 bg-linear-to-b from-slate-800/95 to-slate-900/95 border-amber-200/10' : 'text-stone-800 bg-linear-to-b from-amber-50 to-stone-100 border-amber-200/50'}`}>
+                <div key={brand} className={`text-center text-[11px] sm:text-base font-semibold px-1.5 py-2.5 sm:px-2 sm:py-3 rounded-lg border shadow-[0_8px_20px_rgba(15,23,42,0.18)] ${isDarkMode ? 'text-amber-50 bg-linear-to-b from-slate-800/95 to-slate-900/95 border-amber-200/10' : 'text-stone-800 bg-linear-to-b from-amber-50 to-stone-100 border-amber-200/50'}`}>
                   {brand}
                 </div>
               ))}
@@ -349,7 +351,7 @@ export default function InventoryHeatmap({ isDarkMode = false }) {
                   className="grid gap-2"
                   style={{ gridTemplateColumns: gridColumns }}
                 >
-                  <div className={`flex items-center justify-end pr-2 text-xs sm:text-sm font-medium ${styles.textMuted}`}>
+                  <div className={`flex items-center justify-end pr-2 text-[10px] sm:text-sm font-medium ${styles.textMuted}`}>
                     {rangeLabel}
                   </div>
                   {brands.map((brand, colIndex) => {
@@ -357,12 +359,12 @@ export default function InventoryHeatmap({ isDarkMode = false }) {
                     return (
                       <div
                         key={`${rangeLabel}-${brand}`}
-                        className="min-h-16 sm:min-h-20 rounded-xl border flex flex-col items-center justify-center text-center px-2 py-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_18px_36px_rgba(15,23,42,0.22)]"
+                        className="min-h-14 sm:min-h-20 rounded-xl border flex flex-col items-center justify-center text-center px-1.5 py-2.5 sm:px-2 sm:py-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_18px_36px_rgba(15,23,42,0.22)]"
                         style={cellStyle(count)}
                         title={`${brand} • ${rangeLabel} • ${count} products`}
                       >
-                        <div className="text-lg sm:text-2xl font-bold leading-none">{count}</div>
-                        <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide mt-1 opacity-90">pcs</div>
+                        <div className="text-base sm:text-2xl font-bold leading-none">{count}</div>
+                        <div className="text-[9px] sm:text-xs font-semibold uppercase tracking-wide mt-1 opacity-90">pcs</div>
                       </div>
                     );
                   })}
