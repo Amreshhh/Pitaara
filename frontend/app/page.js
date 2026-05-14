@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  ThemeToggle,
   Header,
   HeroSection,
   InputSection,
@@ -212,8 +211,6 @@ export default function App() {
         currentRate={currentRate24K}
         onToggleTheme={toggleTheme}
       />
-
-      <ThemeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
 
       {/* 🔥 Cache Status Indicator */}
       <div className={`fixed bottom-4 right-4 px-3 py-2 rounded text-xs font-medium z-50 ${

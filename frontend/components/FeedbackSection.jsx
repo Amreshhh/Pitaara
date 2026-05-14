@@ -15,6 +15,15 @@ export const FeedbackSection = ({ isDarkMode }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isValidContact = (value) => {
+    const trimmed = value.trim();
+    // normalize to digits for phone check
+    const digits = (trimmed || '').replace(/\D/g, '');
+    const isPhone = digits.length === 10;
+    const isGmail = /^[^\s@]+@gmail\.com$/i.test(trimmed);
+    return isPhone || isGmail;
+  };
+
   const handleChange = (event) => {
     const { name, value } = event.target;
     if (errorMessage) {
@@ -35,6 +44,12 @@ export const FeedbackSection = ({ isDarkMode }) => {
     if (!name || !contact || !issue) {
       setStatusMessage('');
       setErrorMessage('Please fill all three fields before sending feedback.');
+      return;
+    }
+
+    if (!isValidContact(contact)) {
+      setStatusMessage('');
+      setErrorMessage('Enter a valid phone number or a Gmail address.');
       return;
     }
 
@@ -119,10 +134,15 @@ export const FeedbackSection = ({ isDarkMode }) => {
               name="contact"
               value={formState.contact}
               onChange={handleChange}
-              placeholder="you@gmail.com or 98xxxxxx"
+              placeholder="mobile number or you@gmail.com"
+              inputMode="tel"
+              autoComplete="off"
               required
               className={`w-full rounded-xl border px-4 py-3 text-base outline-none transition-all duration-300 focus:ring-2 focus:ring-amber-400/40 ${styles.inputBg} ${styles.borderColor} ${styles.textMain}`}
             />
+            <p className={`mt-2 text-[11px] ${styles.textMuted}`}>
+              Enter a 10-digit mobile number or a Gmail address only.
+            </p>
           </div>
         </div>
 
