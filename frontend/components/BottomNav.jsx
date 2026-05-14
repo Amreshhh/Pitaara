@@ -68,28 +68,32 @@ export default function BottomNav() {
   }, []);
 
   const navButtonClass = (isActive) =>
-    `flex flex-col items-center p-2 transition-colors ${isActive ? 'text-orange-500' : 'text-stone-400 dark:text-stone-500'}`;
+    `group flex flex-col items-center justify-center gap-1 min-w-0 rounded-2xl px-3 py-2 transition-all duration-200 ease-out transform-gpu ${
+      isActive
+        ? 'text-orange-500 bg-orange-500/10 dark:bg-orange-400/15 shadow-[0_10px_25px_rgba(249,115,22,0.14)] scale-[1.03]'
+        : 'text-stone-400 dark:text-stone-500 hover:text-orange-400 hover:bg-stone-100/80 dark:hover:bg-stone-800/60'
+    }`;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t pb-safe pt-2 px-6 flex justify-between items-center sm:hidden z-50 dark:bg-stone-900 dark:border-stone-700">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t pb-safe pt-2 px-4 flex justify-between items-center sm:hidden z-50 dark:bg-stone-900/90 dark:border-stone-700">
       <button type="button" onClick={() => handleNavClick('home', '#top')} className={navButtonClass(activeTab === 'home')}>
         <Home size={22} />
-        <span className="text-[10px] mt-1 font-medium">Home</span>
+        <span className={`text-[10px] font-medium transition-colors ${activeTab === 'home' ? 'text-orange-500' : ''}`}>Home</span>
       </button>
 
       <button type="button" onClick={() => handleNavClick('calculator', '#estimator')} className={navButtonClass(activeTab === 'calculator')}>
         <Activity size={22} />
-        <span className="text-[10px] mt-1 font-medium">Calculator</span>
+        <span className={`text-[10px] font-medium transition-colors ${activeTab === 'calculator' ? 'text-orange-500' : ''}`}>Calculator</span>
       </button>
 
       <button type="button" onClick={() => handleNavClick('rates', 'rates')} className={navButtonClass(activeTab === 'rates')}>
         <BarChart2 size={22} />
-        <span className="text-[10px] mt-1 font-medium">Rates</span>
+        <span className={`text-[10px] font-medium transition-colors ${activeTab === 'rates' ? 'text-orange-500' : ''}`}>Rates</span>
       </button>
 
       <button type="button" onClick={() => handleNavClick('inventory', 'inventory')} className={navButtonClass(activeTab === 'inventory')}>
         <LayoutGrid size={22} />
-        <span className="text-[10px] mt-1 font-medium">Inventory</span>
+        <span className={`text-[10px] font-medium transition-colors ${activeTab === 'inventory' ? 'text-orange-500' : ''}`}>Inventory</span>
       </button>
     </nav>
   );
