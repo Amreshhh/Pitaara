@@ -772,81 +772,92 @@ async def calculate_price(req: CalculatorRequest):
 
         # B. Loop through brands and calculate
         for brand in brands_to_check:
-            # Strict brand lookup only (no cross-brand fallback)
-            per_gram_rate = _resolve_brand_rate(live_rates, brand, req.purity)
+            try:
+                # Strict brand lookup only (no cross-brand fallback)
+                per_gram_rate = _resolve_brand_rate(live_rates, brand, req.purity)
 
-            if per_gram_rate is None:
-                raise HTTPException(status_code=503, detail=f"No live rate available for brand {brand} and purity {req.purity}")
-            print(f"   {brand}: Live Rate for {req.purity} = ₹{per_gram_rate}")
+                if per_gram_rate is None:
+                    print(f"⚠️ Skipping {brand}: no live rate available for purity {req.purity}")
+                    continue
+                print(f"   {brand}: Live Rate for {req.purity} = ₹{per_gram_rate}")
 
-            # Get Making Charges in (weight-1) to (weight+1) range with lowest making charge
-            parsed_range = _parse_weight_range(req.weight_range) if req.jewellery_type == "coin" else None
-            print(f"   Parsed range for {brand}: {parsed_range}")
-            
-            db_stats = await get_brand_making_charges(
-                brand,
-                req.jewellery_type,
-                req.purity,
-                req.weight,
-                explicit_range=parsed_range
-            )
-            
-            # 🔥 USE LOWEST MAKING CHARGE FOR CALCULATION (NOT AVERAGE)
-            making_percent = db_stats["lowest_making"]
-
-            # Mathematical Calculations (Strictly NO WASTAGE)
-            # For coins, always use the min range weight; for others, use best_weight if available
-            if req.jewellery_type == "coin" and parsed_range:
-                calculation_weight = parsed_range[0]  # Use minimum of the range
-                print(f"   {brand}: COIN MODE - using min of range: {calculation_weight}")
-            else:
-                calculation_weight = db_stats.get("best_weight", req.weight)
-                print(f"   {brand}: NON-COIN MODE - using best_weight: {calculation_weight}")
-            
-            gold_value = calculation_weight * per_gram_rate
-            making_charges = gold_value * (making_percent / 100)
-            
-            subtotal = gold_value + making_charges # Wastage is 0
-            gst = subtotal * 0.03
-            total_estimated_price = subtotal + gst
-
-            # DEBUG
-            print(f"\n🔍 DEBUG {brand}:")
-            print(f"   Rate: {per_gram_rate}, Calc Weight: {calculation_weight}, Making %: {making_percent}")
-            print(f"   Gold Value: {gold_value}, Making: {making_charges}")
-            print(f"   Subtotal: {subtotal}, GST: {gst}, Total: {total_estimated_price}")
-            print()
-
-            result_obj = {
-                "brand": brand,
-                "per_gram_rate": per_gram_rate,
-                "calculation_weight": round(calculation_weight, 2),
-                "gold_value": round(gold_value, 2),
-                "making_charges": round(making_charges, 2),
-                "making_charges_percentage": round(making_percent, 2),
-                "wastage_charges": 0, # Force set to zero
-                "subtotal": round(subtotal, 2),
-                "gst": round(gst, 2),
-                "total_estimated_price": round(total_estimated_price, 2),
+                # Get Making Charges in (weight-1) to (weight+1) range with lowest making charge
+                parsed_range = _parse_weight_range(req.weight_range) if req.jewellery_type == "coin" else None
+                print(f"   Parsed range for {brand}: {parsed_range}")
                 
-                # Metadata for UI
-                "is_empty": db_stats.get("is_empty", False),
-                "db_product_count": db_stats.get("count", 0),
-                "searched_min_w": db_stats.get("searched_min_w", 0),
-                "searched_max_w": db_stats.get("searched_max_w", 0),
+                db_stats = await get_brand_making_charges(
+                    brand,
+                    req.jewellery_type,
+                    req.purity,
+                    req.weight,
+                    explicit_range=parsed_range
+                )
                 
-                # 🔥 NEW: Lowest making charge info for display
-                "lowest_making_charge_in_range": {
-                    "lowest_making_charge": db_stats.get("lowest_making", 15.0),
-                    "product_count": db_stats.get("product_count", 0),
-                    "searched_range": f"{db_stats.get('searched_min_w', req.weight-1)}-{db_stats.get('searched_max_w', req.weight+1)}g"
+                # 🔥 USE LOWEST MAKING CHARGE FOR CALCULATION (NOT AVERAGE)
+                making_percent = db_stats["lowest_making"]
+
+                # Mathematical Calculations (Strictly NO WASTAGE)
+                # For coins, always use the min range weight; for others, use best_weight if available
+                if req.jewellery_type == "coin" and parsed_range:
+                    calculation_weight = parsed_range[0]  # Use minimum of the range
+                    print(f"   {brand}: COIN MODE - using min of range: {calculation_weight}")
+                else:
+                    calculation_weight = db_stats.get("best_weight", req.weight)
+                    print(f"   {brand}: NON-COIN MODE - using best_weight: {calculation_weight}")
+                
+                gold_value = calculation_weight * per_gram_rate
+                making_charges = gold_value * (making_percent / 100)
+                
+                subtotal = gold_value + making_charges # Wastage is 0
+                gst = subtotal * 0.03
+                total_estimated_price = subtotal + gst
+
+                # DEBUG
+                print(f"\n🔍 DEBUG {brand}:")
+                print(f"   Rate: {per_gram_rate}, Calc Weight: {calculation_weight}, Making %: {making_percent}")
+                print(f"   Gold Value: {gold_value}, Making: {making_charges}")
+                print(f"   Subtotal: {subtotal}, GST: {gst}, Total: {total_estimated_price}")
+                print()
+
+                result_obj = {
+                    "brand": brand,
+                    "per_gram_rate": per_gram_rate,
+                    "calculation_weight": round(calculation_weight, 2),
+                    "gold_value": round(gold_value, 2),
+                    "making_charges": round(making_charges, 2),
+                    "making_charges_percentage": round(making_percent, 2),
+                    "wastage_charges": 0, # Force set to zero
+                    "subtotal": round(subtotal, 2),
+                    "gst": round(gst, 2),
+                    "total_estimated_price": round(total_estimated_price, 2),
+                    
+                    # Metadata for UI
+                    "is_empty": db_stats.get("is_empty", False),
+                    "db_product_count": db_stats.get("count", 0),
+                    "searched_min_w": db_stats.get("searched_min_w", 0),
+                    "searched_max_w": db_stats.get("searched_max_w", 0),
+                    
+                    # 🔥 NEW: Lowest making charge info for display
+                    "lowest_making_charge_in_range": {
+                        "lowest_making_charge": db_stats.get("lowest_making", 15.0),
+                        "product_count": db_stats.get("product_count", 0),
+                        "searched_range": f"{db_stats.get('searched_min_w', req.weight-1)}-{db_stats.get('searched_max_w', req.weight+1)}g"
+                    }
                 }
-            }
-            
-            results.append(result_obj)
+                
+                results.append(result_obj)
+            except Exception as brand_error:
+                print(f"⚠️ Skipping {brand}: calculation failed: {brand_error}")
+                continue
 
         # C. Sort by lowest total price
         sorted_results = sorted(results, key=lambda x: x["total_estimated_price"])
+
+        if not sorted_results:
+            raise HTTPException(
+                status_code=503,
+                detail=f"No live rates available for purity {req.purity} across all brands"
+            )
 
         return {
             "status": "success",
@@ -856,6 +867,8 @@ async def calculate_price(req: CalculatorRequest):
             "highest_price_brand": sorted_results[-1]["brand"]
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error calculating price: {str(e)}")
