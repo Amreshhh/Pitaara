@@ -11,6 +11,7 @@ import {
   InventoryHeatmap,
   Disclaimer,
 } from '@/components';
+import SectionDivider from '@/components/SectionDivider';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useLiveRates } from '@/hooks/useLiveRates';
 import { useGoldCalculator } from '@/hooks/useGoldCalculator';
@@ -276,8 +277,9 @@ export default function App() {
           />
 
           {/* 🔥 Inventory Matrix Heatmap Section */}
-          {/* <div className="mt-16 sm:mt-20 pt-10 sm:pt-12 border-t border-gray-300 dark:border-gray-700 overflow-hidden">
-            Enhanced Description Section
+          <div className="mt-16 sm:mt-20 pt-10 sm:pt-12 overflow-hidden">
+            <SectionDivider isDarkMode={isDarkMode} showFlourish={false} />
+              {/* Enhanced Description Section*/}
             <div className={`mb-6 p-4 rounded-xl border ${
               isDarkMode
                 ? 'bg-amber-950/30 border-amber-800/50'
@@ -286,9 +288,11 @@ export default function App() {
               <p className={`mb-2 text-lg font-semibold ${styles.textMain}`}>📊 Inventory blueprint of all listed brands</p>
               <p className={`text-sm font-medium ${styles.textMuted}`}>Note: Data displayed is Highly accurate</p>
             </div>
-            <div className="mb-6 border-b border-gray-300 dark:border-gray-700"></div>
+            <div className="mb-6">
+              <SectionDivider isDarkMode={isDarkMode} showFlourish={false} />
+            </div>
 
-            {/* Minimize Toggle Button 
+            {/* Minimize Toggle Button */}
             <button
               onClick={() => setIsHeatmapMinimized((s) => !s)}
               className={`flex items-center gap-3 mb-4 px-4 py-2 rounded-lg font-medium ${
@@ -303,13 +307,13 @@ export default function App() {
               <span>{isHeatmapMinimized ? 'Expand Inventory Matrix' : 'Collapse Inventory Matrix'}</span>
             </button>
 
-            {/* Collapsible Heatmap Container (always present, toggles open class) *
+            {/* Collapsible Heatmap Container (always present, toggles open class) */}
             <div className={`mt-4 heatmap-collapsible ${isHeatmapMinimized ? '' : 'open'}`}>
-              <div className="animation-fade-in">
+              <div className={`animation-fade-in rounded-xl ${isDarkMode ? 'shadow-[0_8px_20px_rgba(0,0,0,0.3)]' : 'shadow-[0_8px_20px_rgba(0,0,0,0.12)]'}`}>
                 <InventoryHeatmap isDarkMode={isDarkMode} />
               </div>
             </div>
-          </div> */}
+          </div>
 
           <FeedbackSection isDarkMode={isDarkMode} />
 
