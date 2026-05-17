@@ -66,10 +66,20 @@ export default function BottomNav() {
         return;
       }
 
+      // Check if brand modal is open (brand summary modal)
+      const modalBackdrop = document.querySelector('.fixed.inset-0.z-50');
+      const isModalOpen = modalBackdrop && modalBackdrop.style.display !== 'none';
+
       const estimator = document.querySelector('#estimator');
       const ratesPanel = document.querySelector('.hero-rates-panel');
       const inventorySection = document.querySelector('.heatmap-section');
       const scrollY = window.scrollY + window.innerHeight * 0.35;
+
+      // If modal is open (viewing brand summary), keep calculator tab active
+      if (isModalOpen && estimator) {
+        setActiveTab('calculator');
+        return;
+      }
 
       if (inventorySection && scrollY >= inventorySection.offsetTop - 80) {
         setActiveTab('inventory');
@@ -93,6 +103,19 @@ export default function BottomNav() {
     window.addEventListener('scroll', updateActiveTab, { passive: true });
     window.addEventListener('resize', updateActiveTab);
 
+    // Watch for modal open/close to update active tab immediately
+    const modalObserver = new MutationObserver(() => {
+      updateActiveTab();
+    });
+    
+    // Observe the body for child additions/removals (modals)
+    modalObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    });
+
     return () => {
       window.removeEventListener('scroll', updateActiveTab);
       window.removeEventListener('resize', updateActiveTab);
@@ -100,6 +123,7 @@ export default function BottomNav() {
         window.clearTimeout(manualTabTimerRef.current);
       }
       observer.disconnect();
+      modalObserver.disconnect();
     };
   }, []);
 
