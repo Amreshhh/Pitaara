@@ -4,7 +4,7 @@
   import { getThemeStyles } from '../lib/utils';
   import { FeatureRow } from './FeatureRow';
 
-  const RoyalWheel = () => (
+  const RoyalWheel = ({ isDarkMode }) => (
     <svg viewBox="0 0 500 500" className="w-full h-full animate-[spin_60s_linear_infinite]">
       <defs>
         <linearGradient id="gold-base" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -14,6 +14,41 @@
           <stop offset="75%" stopColor="#fbf5b7" />
           <stop offset="100%" stopColor="#aa771c" />
         </linearGradient>
+        <radialGradient id="gold-center" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#fff7d9" stopOpacity="1" />
+          <stop offset="40%" stopColor="#fbf0b8" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#f0d88a" stopOpacity="0.0" />
+        </radialGradient>
+        
+        {/* Center glow filter for light mode (soft halo) */}
+        <filter id="wheel-glow-center-gold" x="-50%" y="-50%" width="200%" height="200%" colorInterpolationFilters="sRGB">
+          <feGaussianBlur stdDeviation="18" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+
+        {/* Boundary glow filters: gold (light) and green (dark) */}
+        <filter id="wheel-glow-boundary-gold" x="-60%" y="-60%" width="220%" height="220%" colorInterpolationFilters="sRGB">
+          <feGaussianBlur stdDeviation="26" result="bloom" />
+          <feFlood floodColor="#f6e29a" floodOpacity="0.65" result="flood" />
+          <feComposite in="flood" in2="bloom" operator="in" result="coloredBloom" />
+          <feMerge>
+            <feMergeNode in="coloredBloom" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+
+        <filter id="wheel-glow-boundary-green" x="-60%" y="-60%" width="220%" height="220%" colorInterpolationFilters="sRGB">
+          <feGaussianBlur stdDeviation="26" result="bloom" />
+          <feFlood floodColor="#18b38a" floodOpacity="0.55" result="flood" />
+          <feComposite in="flood" in2="bloom" operator="in" result="coloredBloom" />
+          <feMerge>
+            <feMergeNode in="coloredBloom" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
         <linearGradient id="gold-dark" x1="100%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#593b0b" />
           <stop offset="50%" stopColor="#b38728" />
@@ -39,7 +74,16 @@
         </g>
       </defs>
 
-      <circle cx="250" cy="250" r="240" fill="none" stroke="url(#gold-dark)" strokeWidth="16" filter="url(#glow)" />
+      {/* outer boundary - apply gold or green boundary glow depending on theme */}
+      <circle
+        cx="250"
+        cy="250"
+        r="240"
+        fill="none"
+        stroke="url(#gold-dark)"
+        strokeWidth="16"
+        filter={`url(#${isDarkMode ? 'wheel-glow-boundary-green' : 'wheel-glow-boundary-gold'})`}
+      />
       <circle cx="250" cy="250" r="228" fill="none" stroke="url(#gold-base)" strokeWidth="10" />
       <circle cx="250" cy="250" r="212" fill="none" stroke="url(#gold-base)" strokeWidth="12" strokeDasharray="4 16" strokeLinecap="round" />
       <circle cx="250" cy="250" r="202" fill="none" stroke="url(#gold-dark)" strokeWidth="4" />
@@ -48,6 +92,11 @@
       {Array.from({ length: 16 }).map((_, i) => (
         <use key={`spoke-${i}`} href="#spoke" transform={`rotate(${i * 22.5} 250 250)`} />
       ))}
+
+      {/* center core - in light mode add a soft gold center halo */}
+      { !isDarkMode && (
+        <circle cx="250" cy="250" r="95" fill="url(#gold-center)" filter="url(#wheel-glow-center-gold)" />
+      ) }
 
       <circle cx="250" cy="250" r="75" fill="url(#gold-dark)" filter="url(#glow)" />
       <circle cx="250" cy="250" r="68" fill="url(#gold-base)" />
@@ -120,7 +169,7 @@
       <section className="hero-section relative min-h-[10vh] flex flex-col items-center justify-center overflow-hidden px-4 text-center">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
-            className={`absolute top-[-5%] left-1/2 -translate-x-1/2 w-225 md:w-300 h-200 rounded-full blur-[150px] opacity-40 transition-colors duration-700 ${isDarkMode ? 'bg-cyan-800/50' : 'bg-amber-200/70'}`}
+            className={`absolute top-[-5%] left-1/2 -translate-x-1/2 w-225 md:w-300 h-200 rounded-full blur-[150px] opacity-45 transition-colors duration-700 ${isDarkMode ? 'bg-cyan-800/50' : 'bg-amber-200/75'}`}
           ></div>
           <div
             className={`absolute bottom-0 right-0 w-100 h-100 rounded-full blur-[100px] opacity-20 transition-colors duration-700 ${isDarkMode ? 'bg-purple-900/20' : 'bg-orange-100'}`}
@@ -129,12 +178,12 @@
 
         <div className="max-w-5xl mx-auto relative z-10 flex flex-col items-center">
           <div className="relative flex flex-col items-center justify-center w-full my-40">
-            <div className="hero-wheel absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-87.5 h-87.5 md:w-137.5 md:h-137.5 pointer-events-none opacity-50 dark:opacity-40">
-              <RoyalWheel />
+              <div className="hero-wheel absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-87.5 h-87.5 md:w-137.5 md:h-137.5 pointer-events-none opacity-50 dark:opacity-40">
+              <RoyalWheel isDarkMode={isDarkMode} />
             </div>
 
             <div
-              className={`relative z-10 w-24 h-px mb-8 transition-colors duration-500 ${isDarkMode ? 'bg-linear-to-r from-transparent via-cyan-500 to-transparent' : 'bg-linear-to-r from-transparent via-amber-600 to-transparent'}`}
+              className="relative z-10 w-48 md:w-72 h-0.5 mb-8 -translate-y-28 md:-translate-y-40 opacity-0 pointer-events-none"
             ></div>
 
             <h1 className="relative z-10 font-serif tracking-tight mb-8 leading-[1.1] text-center">
