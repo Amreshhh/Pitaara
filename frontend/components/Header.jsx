@@ -12,7 +12,7 @@ export const Header = ({ isDarkMode, currentRate = 14620, onToggleTheme }) => {
       className={`sticky top-0 z-40 backdrop-blur-xl border-b transition-colors duration-500 ${styles.headerBg} ${styles.borderColor}`}
     >
       <div className="relative">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-row items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-row items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-serif font-bold tracking-tight">OmRani</h1>
           </div>

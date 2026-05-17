@@ -177,7 +177,7 @@
         </div>
 
         <div className="max-w-5xl mx-auto relative z-10 flex flex-col items-center">
-          <div className="relative flex flex-col items-center justify-center w-full my-40">
+          <div className="relative flex flex-col items-center justify-center w-full my-20 md:my-40">
               <div className="hero-wheel absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-87.5 h-87.5 md:w-137.5 md:h-137.5 pointer-events-none opacity-50 dark:opacity-40">
               <RoyalWheel isDarkMode={isDarkMode} />
             </div>
