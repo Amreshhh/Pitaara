@@ -116,19 +116,23 @@ export default function BottomNav() {
 
   return (
     <nav className={`fixed bottom-0 left-0 right-0 backdrop-blur-xl border-t pb-safe pt-2 px-4 flex justify-between items-center sm:hidden z-50 transition-colors duration-300 ${isDarkMode ? 'bg-stone-900/90 border-stone-700' : 'bg-white/90 border-stone-200'}`}>
+      {/* Home button temporarily disabled
       <button type="button" onClick={() => handleNavClick('home', '#top')} className={navButtonClass(activeTab === 'home')}>
         <Home size={22} />
         <span className={`text-[10px] font-medium transition-colors ${activeTab === 'home' ? (isDarkMode ? 'text-amber-300' : 'text-orange-500') : ''}`}>Home</span>
+      </button>
+      */}
+
+      {/* Reordered buttons: Rates, Calculator, Inventory (functionality unchanged) */}
+
+      <button type="button" onClick={() => handleNavClick('rates', 'rates')} className={navButtonClass(activeTab === 'rates')}>
+        <BarChart2 size={22} />
+        <span className={`text-[10px] font-medium transition-colors ${activeTab === 'rates' ? (isDarkMode ? 'text-amber-300' : 'text-orange-500') : ''}`}>Rates</span>
       </button>
 
       <button type="button" onClick={() => handleNavClick('calculator', '#estimator')} className={navButtonClass(activeTab === 'calculator')}>
         <Activity size={22} />
         <span className={`text-[10px] font-medium transition-colors ${activeTab === 'calculator' ? (isDarkMode ? 'text-amber-300' : 'text-orange-500') : ''}`}>Calculator</span>
-      </button>
-
-      <button type="button" onClick={() => handleNavClick('rates', 'rates')} className={navButtonClass(activeTab === 'rates')}>
-        <BarChart2 size={22} />
-        <span className={`text-[10px] font-medium transition-colors ${activeTab === 'rates' ? (isDarkMode ? 'text-amber-300' : 'text-orange-500') : ''}`}>Rates</span>
       </button>
 
       <button type="button" onClick={() => handleNavClick('inventory', 'inventory')} className={navButtonClass(activeTab === 'inventory')}>
