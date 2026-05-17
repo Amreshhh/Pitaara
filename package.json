@@ -7,5 +7,9 @@
     "build": "npm run build -w frontend",
     "dev": "npm run dev -w frontend",
     "lint": "npm run lint -w frontend"
+  },
+  "dependencies": {
+    "recharts": "^3.8.1",
+    "redis": "^5.12.1"
   }
 }
