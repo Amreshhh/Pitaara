@@ -85,7 +85,12 @@ export const BrandCard = ({ item, isDarkMode, onSelect, weight, purity, category
                     isDarkMode ? 'bg-stone-800 text-stone-200' : 'bg-stone-800 text-stone-100'
                   }`}
                 >
-                  {weight}g × ₹{item.breakdown.appliedRate?.toLocaleString('en-IN')} ({purity} Rate)
+                  {item.breakdown.calculationWeight || weight}g × ₹{item.breakdown.appliedRate?.toLocaleString('en-IN')} ({purity} Rate)
+                  {item.breakdown.calculationWeight && item.breakdown.calculationWeight !== weight && (
+                    <div className="mt-1 pt-1 border-t border-stone-600 text-amber-400">
+                      Best match for {weight}g search
+                    </div>
+                  )}
                 </div>
               </div>
               <span className="font-mono text-base">{formatCurrency(item.breakdown.goldValue)}</span>

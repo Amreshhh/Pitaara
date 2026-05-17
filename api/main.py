@@ -242,14 +242,19 @@ def _normalize_category(frontend_category: str) -> str:
         'band(plain ring)': 'Band or Plain Ring',
         'hoops': 'Hoops',
         'hoops(a type of bali)': 'Hoops',
+        'nose_pin': 'Nose Pin',
+        'maang_tikka': 'Maang Tikka',
+        'coin_pendant': 'Coin Pendant',
+        'watch': 'Watch',
     }
 
     # If it's a known frontend ID variant, return the database category name
     if lowered in category_map:
         return category_map[lowered]
     
-    # Otherwise return as-is (for regular categories like 'chain', 'ring', etc.)
-    return raw
+    # Otherwise, capitalize first letter of each word (for regular categories)
+    # e.g., 'earring' -> 'Earring', 'ring' -> 'Ring'
+    return raw.title()
 
 
 def _escape_regex(text: str) -> str:
@@ -305,14 +310,33 @@ async def get_brand_making_charges(
         else:
             min_w = round(target_weight - buffer, 2)
             max_w = round(target_weight + buffer, 2)
+            # For lightweight jewelry, ensure min_w doesn't go negative
+            # Also adjust to catch very light items
+            if min_w < 0:
+                min_w = 0.01  # Start from 0.01g to include ultra-light items
         
-        cursor = collection.find({
+        query = {
             "category": {"$regex": f"^{escaped_category}$", "$options": "i"},
             "purity": purity,
             weight_field: {"$gte": min_w, "$lte": max_w},
             "type": {"$regex": "Gold", "$options": "i"}
-        })
+        }
+        cursor = collection.find(query)
         docs = await cursor.to_list(length=None)
+        
+        # Debug logging for lightweight categories
+        if not docs and normalized_category.lower() in ["nose pin", "nose_pin", "earring", "nath"]:
+            print(f"⚠️ No products found for {brand_name} {normalized_category} {purity} in range {min_w}g-{max_w}g")
+            # Try to find what ranges actually have products
+            sample_cursor = collection.find({
+                "category": {"$regex": f"^{escaped_category}$", "$options": "i"},
+                "purity": purity,
+                "type": {"$regex": "Gold", "$options": "i"}
+            }).limit(5)
+            sample_docs = await sample_cursor.to_list(length=None)
+            if sample_docs:
+                weights = [doc.get(weight_field, 0) for doc in sample_docs]
+                print(f"   Sample weights available: {weights}")
         
         if not docs:
             return None, min_w, max_w
@@ -372,18 +396,47 @@ async def get_brand_making_charges(
             "best_weight": round(target_weight, 2)
         }
 
-    # 🔥 ELASTIC EXPANSION LOGIC
-    # 1. Try ±1g range first (e.g., 19-21 for input 20)
-    result, min_w, max_w = await search_range(1.0)
-    if result:
-        return result
+    # 🔥 ELASTIC EXPANSION LOGIC WITH LIGHTWEIGHT JEWELRY SUPPORT
+    # Define lightweight categories that typically have products < 3g
+    lightweight_categories = ["nose pin", "nose_pin", "nath", "earring", "maang tikka", "maang_tikka"]
+    is_lightweight = any(cat in normalized_category.lower() for cat in lightweight_categories)
     
-    # 2. Try ±2g range if no products (e.g., 18-22 for input 20)
-    result, min_w, max_w = await search_range(2.0)
-    if result:
-        return result
+    # For lightweight jewelry with target_weight <= 3g, use special search strategy
+    if is_lightweight and target_weight <= 3:
+        # First try exact range around target
+        result, min_w, max_w = await search_range(1.0)
+        if result:
+            return result
+        
+        # If no results and target is 2g or less, search from 0.01 to target+1
+        if target_weight <= 2:
+            result, min_w, max_w = await search_range(exact_range=(0.01, target_weight + 1))
+            if result:
+                return result
+        
+        # Try broader range 0.01 to 5g for any lightweight jewelry
+        result, min_w, max_w = await search_range(exact_range=(0.01, 5.0))
+        if result:
+            return result
+    else:
+        # Standard expansion for regular jewelry
+        # 1. Try ±1g range first (e.g., 19-21 for input 20)
+        result, min_w, max_w = await search_range(1.0)
+        if result:
+            return result
+        
+        # 2. Try ±2g range if no products (e.g., 18-22 for input 20)
+        result, min_w, max_w = await search_range(2.0)
+        if result:
+            return result
+        
+        # 3. For items under 5g, also try from 0.01g upward
+        if target_weight < 5:
+            result, min_w, max_w = await search_range(exact_range=(0.01, target_weight + 2))
+            if result:
+                return result
     
-    # 3. If still nothing, return empty with expanded range
+    # If still nothing, return empty with expanded range
     return {
         "lowest_making": 15.0,  # Fallback
         "count": 0,

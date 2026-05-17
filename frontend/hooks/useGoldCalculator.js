@@ -56,6 +56,7 @@ export const useGoldCalculator = (inputs, trigger = 0) => {
             ...uiStyles,
             breakdown: {
               appliedRate: item.per_gram_rate,
+              calculationWeight: item.calculation_weight, // 🔥 ACTUAL weight used in calculation
               goldValue: item.gold_value,
               makingCharges: item.making_charges,
               makingPercent: item.making_charges_percentage / 100, 

@@ -135,28 +135,25 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
   // Compute a local, authoritative breakdown from API values to ensure UI consistency
   const computedBreakdown = useMemo(() => {
     const appliedRate = Number(selectedBrand?.breakdown?.appliedRate) || 0;
-    const displayWeight = getDisplayWeight();
+    
+    // 🔥 USE CALCULATION_WEIGHT FROM API - the actual weight used in backend calculation
+    const calculationWeight = Number(selectedBrand?.breakdown?.calculationWeight) || getDisplayWeight();
+    const userInputWeight = getDisplayWeight();
 
-    const goldValue = Math.round((appliedRate * displayWeight) * 100) / 100;
+    // 🔥 Use already-calculated values from API instead of recalculating
+    const goldValue = Number(selectedBrand?.breakdown?.goldValue) || 0;
+    const makingCharges = Number(selectedBrand?.breakdown?.makingCharges) || 0;
+    const subtotal = Number(selectedBrand?.breakdown?.subtotal) || 0;
+    const gst = Number(selectedBrand?.breakdown?.gst) || 0;
+    const total = Number(selectedBrand?.breakdown?.total) || 0;
 
-    // makingPercent may be stored as fraction or percent in different places
-    let makingPercent = 0;
-    if (selectedBrand?.breakdown?.makingPercent !== undefined) {
-      makingPercent = Number(selectedBrand.breakdown.makingPercent) || 0; // fraction (e.g. 0.15)
-    } else if (selectedBrand?.breakdown?.making_charges_percentage !== undefined) {
-      makingPercent = (Number(selectedBrand.breakdown.making_charges_percentage) || 0) / 100;
-    } else if (selectedBrand?.lowest_making_charge_in_range?.lowest_making_charge) {
-      makingPercent = (Number(selectedBrand.lowest_making_charge_in_range.lowest_making_charge) || 0) / 100;
-    }
-
-    const makingCharges = Math.round((goldValue * makingPercent) * 100) / 100;
-    const subtotal = Math.round((goldValue + makingCharges) * 100) / 100;
-    const gst = Math.round((subtotal * 0.03) * 100) / 100;
-    const total = Math.round((subtotal + gst) * 100) / 100;
+    // makingPercent as fraction (e.g. 0.15 for 15%)
+    const makingPercent = Number(selectedBrand?.breakdown?.makingPercent) || 0;
 
     return {
       appliedRate,
-      displayWeight,
+      calculationWeight, // Actual weight used in backend calculation
+      userInputWeight,   // User's search input weight
       goldValue,
       makingCharges,
       makingPercent,
@@ -242,15 +239,29 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                   </thead>
                   <tbody className={`divide-y ${styles.borderColor}`}>
                     <tr>
-                      <td className="py-3 sm:py-4 px-3 sm:px-4 font-medium">Gold Value</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 font-medium">
+                        Gold Value
+                        {computedBreakdown.calculationWeight !== computedBreakdown.userInputWeight && (
+                          <div className="text-[10px] text-amber-500 font-normal mt-1">
+                            (Best match for {computedBreakdown.userInputWeight}g)
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">₹{computedBreakdown.appliedRate.toLocaleString('en-IN')}/g</td>
-                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">{computedBreakdown.displayWeight}g</td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">
+                        {computedBreakdown.calculationWeight}g
+                        {computedBreakdown.calculationWeight !== computedBreakdown.userInputWeight && (
+                          <div className={`text-[10px] mt-1 ${styles.textMuted}`}>
+                            (Searched: {computedBreakdown.userInputWeight}g)
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 sm:py-4 px-3 sm:px-4 text-right font-semibold relative group/tooltip cursor-help whitespace-nowrap">
                         ₹{computedBreakdown.goldValue.toLocaleString('en-IN')}
                         <div
                           className={`absolute bottom-full right-0 mb-2 hidden group-hover/tooltip:block w-max p-2 rounded text-[10px] shadow-lg z-20 ${isDarkMode ? 'bg-stone-800 text-stone-200' : 'bg-stone-800 text-stone-100'}`}
                         >
-                          {computedBreakdown.displayWeight}g × ₹{computedBreakdown.appliedRate.toLocaleString('en-IN')}
+                          {computedBreakdown.calculationWeight}g × ₹{computedBreakdown.appliedRate.toLocaleString('en-IN')}
                         </div>
                       </td>
                     </tr>
@@ -269,7 +280,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                       <td className="py-3 sm:py-4 px-3 sm:px-4 font-medium">Sub Total</td>
                       <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">-</td>
                       <td className="py-3 sm:py-4 px-3 sm:px-4 text-center text-xs sm:text-sm">
-                        <div className="font-medium">{computedBreakdown.displayWeight}g</div>
+                        <div className="font-medium">{computedBreakdown.calculationWeight}g</div>
                         <div className={`text-xs ${styles.textMuted}`}>Gross Wt.</div>
                       </td>
                       <td className="py-3 sm:py-4 px-3 sm:px-4 text-right font-semibold whitespace-nowrap">
