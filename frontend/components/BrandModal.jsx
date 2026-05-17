@@ -2,9 +2,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { X } from 'lucide-react';
 import { getThemeStyles } from '@/lib/utils';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, Cell } from 'recharts';
+
+// Dynamic import to avoid SSR issues
+const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
 export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext }) => {
   const styles = getThemeStyles(isDarkMode);
@@ -368,7 +371,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                     </div>
                   </div>
                   
-                  {/* 🔥 NEW: Scatter Chart Visualization */}
+                  {/* 🔥 ApexCharts Scatter Visualization */}
                   {scatterData.length > 0 && (() => {
                     // Calculate dynamic ranges based on data distribution
                     const weights = scatterData.map(d => d.weight);
@@ -388,125 +391,99 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                     const mcPadding = mcSpan < 5 ? mcSpan * 0.8 : mcSpan * 0.2;
                     
                     // Calculate domains with padding to spread clustered points
-                    const weightDomain = [
-                      Math.max(0, minWeight - weightPadding),
-                      maxWeight + weightPadding
-                    ];
-                    const mcDomain = [
-                      Math.max(0, minMC - mcPadding),
-                      maxMC + mcPadding
-                    ];
+                    const weightMin = Math.max(0, minWeight - weightPadding);
+                    const weightMax = maxWeight + weightPadding;
+                    const mcMin = Math.max(0, minMC - mcPadding);
+                    const mcMax = maxMC + mcPadding;
+                    
+                    // Get brand color
+                    const brandColor = selectedBrand?.iconColor?.includes('rose') ? '#f43f5e' : 
+                          selectedBrand?.iconColor?.includes('amber') ? '#f59e0b' :
+                          selectedBrand?.iconColor?.includes('orange') ? '#f97316' :
+                          selectedBrand?.iconColor?.includes('yellow') ? '#eab308' : '#3b82f6';
+                    
+                    const chartOptions = {
+                      chart: {
+                        type: 'scatter',
+                        zoom: { enabled: true, type: 'xy' },
+                        toolbar: { show: false },
+                        background: 'transparent',
+                        animations: {
+                          enabled: true,
+                          speed: 800,
+                          animateGradually: { enabled: true, delay: 150 },
+                        },
+                      },
+                      theme: { mode: isDarkMode ? 'dark' : 'light' },
+                      colors: [brandColor],
+                      xaxis: {
+                        title: { text: 'Weight (g)', style: { fontSize: '12px', fontWeight: 600 } },
+                        min: weightMin,
+                        max: weightMax,
+                        decimalsInFloat: 1,
+                        labels: { style: { fontSize: '11px' } },
+                      },
+                      yaxis: {
+                        title: { text: 'Making Charge %', style: { fontSize: '12px', fontWeight: 600 } },
+                        min: mcMin,
+                        max: mcMax,
+                        decimalsInFloat: 1,
+                        labels: { style: { fontSize: '11px' } },
+                      },
+                      grid: {
+                        borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                        strokeDashArray: 4,
+                        xaxis: { lines: { show: true } },
+                        yaxis: { lines: { show: true } },
+                      },
+                      markers: {
+                        size: 6,
+                        strokeWidth: 2,
+                        strokeOpacity: 0.8,
+                        strokeColors: [brandColor],
+                        fillOpacity: 0.65,
+                        hover: { size: 8, sizeOffset: 2 },
+                      },
+                      tooltip: {
+                        custom: ({ seriesIndex, dataPointIndex, w }) => {
+                          const data = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
+                          return `
+                            <div style="
+                              background: ${isDarkMode ? '#18181b' : '#ffffff'};
+                              border: 2px solid ${isDarkMode ? '#52525b' : '#d4d4d8'};
+                              border-radius: 10px;
+                              padding: 12px 16px;
+                              box-shadow: ${isDarkMode ? '0 10px 25px rgba(0, 0, 0, 0.5)' : '0 10px 25px rgba(0, 0, 0, 0.15)'};
+                            ">
+                              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                <span style="color: ${isDarkMode ? '#ffffff' : '#000000'}; font-weight: 600; font-size: 13px;">Weight:</span>
+                                <span style="color: ${brandColor}; font-weight: 800; font-size: 16px; font-family: ui-monospace, 'Courier New', monospace;">${data[0]}g</span>
+                              </div>
+                              <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="color: ${isDarkMode ? '#ffffff' : '#000000'}; font-weight: 600; font-size: 13px;">MC:</span>
+                                <span style="color: ${brandColor}; font-weight: 800; font-size: 16px; font-family: ui-monospace, 'Courier New', monospace;">${data[1]}%</span>
+                              </div>
+                            </div>
+                          `;
+                        },
+                      },
+                      legend: { show: false },
+                    };
+                    
+                    const series = [{
+                      name: 'Products',
+                      data: scatterData.map(point => [point.weight, point.mc]),
+                    }];
                     
                     return (
                       <div className="mt-3">
                         <p className={`text-xs uppercase tracking-[0.2em] mb-2 ${styles.textMuted}`}>Weight vs Making Charge</p>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
-                            <CartesianGrid 
-                              strokeDasharray="3 3" 
-                              stroke={isDarkMode ? '#374151' : '#e5e7eb'}
-                              strokeOpacity={0.5}
-                            />
-                            <XAxis 
-                              type="number" 
-                              dataKey="weight" 
-                              name="Weight"
-                              // unit="g"
-                              domain={weightDomain}
-                              allowDataOverflow={false}
-                              stroke={isDarkMode ? '#9ca3af' : '#6b7280'}
-                              tick={{ fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 11 }}
-                              label={{ value: 'Weight (g)', position: 'bottom', offset: 0, style: { fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 11 } }}
-                            />
-                            <YAxis 
-                              type="number" 
-                              dataKey="mc" 
-                              name="Making Charge"
-                              // unit="%"
-                              domain={mcDomain}
-                              allowDataOverflow={false}
-                              stroke={isDarkMode ? '#9ca3af' : '#6b7280'}
-                              tick={{ fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 11 }}
-                              label={{ value: 'MC %', angle: -90, position: 'insideLeft', style: { fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 11 } }}
-                            />
-                            <ZAxis range={[60, 400]} />
-                            <Tooltip 
-                              cursor={{ strokeDasharray: '3 3' }}
-                              contentStyle={{
-                                backgroundColor: isDarkMode ? '#18181b' : '#ffffff',
-                                border: `2px solid ${isDarkMode ? '#52525b' : '#d4d4d8'}`,
-                                borderRadius: '10px',
-                                padding: '12px 16px',
-                                fontSize: '14px',
-                                fontWeight: '600',
-                                color: isDarkMode ? '#fafafa' : '#18181b',
-                                boxShadow: isDarkMode 
-                                  ? '0 10px 25px rgba(0, 0, 0, 0.5)' 
-                                  : '0 10px 25px rgba(0, 0, 0, 0.15)',
-                                letterSpacing: '0.02em',
-                                fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
-                              }}
-                              labelStyle={{
-                                display: 'none'
-                              }}
-                              itemStyle={{
-                                padding: '4px 0',
-                                fontWeight: '600',
-                                color: isDarkMode ? '#ffffff' : '#000000'
-                              }}
-                              formatter={(value, name) => {
-                                const brandColor = selectedBrand?.iconColor?.includes('rose') ? '#f43f5e' : 
-                                      selectedBrand?.iconColor?.includes('amber') ? '#f59e0b' :
-                                      selectedBrand?.iconColor?.includes('orange') ? '#f97316' :
-                                      selectedBrand?.iconColor?.includes('yellow') ? '#eab308' : '#3b82f6';
-                                
-                                if (name === 'Making Charge') {
-                                  return [
-                                    <span key="mc" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <span style={{ 
-                                        color: isDarkMode ? '#ffffff' : '#000000',
-                                        fontWeight: '600',
-                                        fontSize: '13px'
-                                      }}>MC :</span>
-                                      <span style={{ 
-                                        color: brandColor,
-                                        fontWeight: '800',
-                                        fontSize: '16px',
-                                        fontFamily: 'ui-monospace, "Courier New", monospace'
-                                      }}>{value}%</span>
-                                    </span>
-                                  ];
-                                }
-                                if (name === 'Weight') {
-                                  return [
-                                    <span key="weight" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <span style={{ 
-                                        color: isDarkMode ? '#ffffff' : '#000000',
-                                        fontWeight: '600',
-                                        fontSize: '13px'
-                                      }}>Weight :</span>
-                                      <span style={{ 
-                                        color: brandColor,
-                                        fontWeight: '800',
-                                        fontSize: '16px',
-                                        fontFamily: 'ui-monospace, "Courier New", monospace'
-                                      }}>{value}g</span>
-                                    </span>
-                                  ];
-                                }
-                                return [value, name];
-                              }}
-                            />
-                            <Scatter 
-                              data={scatterData} 
-                              fill={selectedBrand?.iconColor?.includes('rose') ? '#f43f5e' : 
-                                    selectedBrand?.iconColor?.includes('amber') ? '#f59e0b' :
-                                    selectedBrand?.iconColor?.includes('orange') ? '#f97316' :
-                                    selectedBrand?.iconColor?.includes('yellow') ? '#eab308' : '#3b82f6'}
-                              fillOpacity={0.6}
-                            />
-                          </ScatterChart>
-                        </ResponsiveContainer>
+                        <Chart
+                          options={chartOptions}
+                          series={series}
+                          type="scatter"
+                          height={320}
+                        />
                       </div>
                     );
                   })()}
