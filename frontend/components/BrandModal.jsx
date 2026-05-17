@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { getThemeStyles } from '@/lib/utils';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis, Cell } from 'recharts';
 
 export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext }) => {
   const styles = getThemeStyles(isDarkMode);
@@ -335,37 +336,180 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <div className={`rounded-2xl border p-4 ${styles.borderColor}`}>
-                  <h4 className="text-lg font-semibold mb-3">Performance Snapshot</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
-                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Data points</p>
-                      <p className="text-2xl font-semibold mt-1">{scatterData.length || 0}</p>
+                  <h4 className="text-base font-semibold mb-2">Performance Snapshot</h4>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className={`rounded-lg border px-3 py-2 ${styles.borderColor}`}>
+                      <p className={`text-[9px] uppercase tracking-[0.15em] ${styles.textMuted}`}>Data points</p>
+                      <p className="text-lg font-semibold mt-0.5">{scatterData.length || 0}</p>
                     </div>
-                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
-                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Avg MC</p>
-                      <p className="text-2xl font-semibold mt-1">
+                    <div className={`rounded-lg border px-3 py-2 ${styles.borderColor}`}>
+                      <p className={`text-[9px] uppercase tracking-[0.15em] ${styles.textMuted}`}>Avg MC</p>
+                      <p className="text-lg font-semibold mt-0.5">
                         {scatterData.length
                           ? `${(scatterData.reduce((sum, point) => sum + Number(point.mc || 0), 0) / scatterData.length).toFixed(1)}%`
                           : 'N/A'}
                       </p>
                     </div>
-                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
-                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Weight range</p>
-                      <p className="text-lg font-semibold mt-1">
+                    <div className={`rounded-lg border px-3 py-2 ${styles.borderColor}`}>
+                      <p className={`text-[9px] uppercase tracking-[0.15em] ${styles.textMuted}`}>Weight range</p>
+                      <p className="text-sm font-semibold mt-0.5">
                         {scatterData.length
                           ? `${Math.min(...scatterData.map((point) => point.weight))}g - ${Math.max(...scatterData.map((point) => point.weight))}g`
                           : 'N/A'}
                       </p>
                     </div>
-                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
-                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>MC range</p>
-                      <p className="text-lg font-semibold mt-1">
+                    <div className={`rounded-lg border px-3 py-2 ${styles.borderColor}`}>
+                      <p className={`text-[9px] uppercase tracking-[0.15em] ${styles.textMuted}`}>MC range</p>
+                      <p className="text-sm font-semibold mt-0.5">
                         {scatterData.length
                           ? `${Math.min(...scatterData.map((point) => point.mc))}% - ${Math.max(...scatterData.map((point) => point.mc))}%`
                           : 'N/A'}
                       </p>
                     </div>
                   </div>
+                  
+                  {/* 🔥 NEW: Scatter Chart Visualization */}
+                  {scatterData.length > 0 && (() => {
+                    // Calculate dynamic ranges based on data distribution
+                    const weights = scatterData.map(d => d.weight);
+                    const mcValues = scatterData.map(d => d.mc);
+                    
+                    const minWeight = Math.min(...weights);
+                    const maxWeight = Math.max(...weights);
+                    const minMC = Math.min(...mcValues);
+                    const maxMC = Math.max(...mcValues);
+                    
+                    // Calculate range spans
+                    const weightSpan = maxWeight - minWeight;
+                    const mcSpan = maxMC - minMC;
+                    
+                    // Add smart padding: more padding for smaller ranges to spread out clusters
+                    const weightPadding = weightSpan < 2 ? weightSpan * 0.5 : weightSpan * 0.15;
+                    const mcPadding = mcSpan < 5 ? mcSpan * 0.8 : mcSpan * 0.2;
+                    
+                    // Calculate domains with padding to spread clustered points
+                    const weightDomain = [
+                      Math.max(0, minWeight - weightPadding),
+                      maxWeight + weightPadding
+                    ];
+                    const mcDomain = [
+                      Math.max(0, minMC - mcPadding),
+                      maxMC + mcPadding
+                    ];
+                    
+                    return (
+                      <div className="mt-3">
+                        <p className={`text-xs uppercase tracking-[0.2em] mb-2 ${styles.textMuted}`}>Weight vs Making Charge</p>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
+                            <CartesianGrid 
+                              strokeDasharray="3 3" 
+                              stroke={isDarkMode ? '#374151' : '#e5e7eb'}
+                              strokeOpacity={0.5}
+                            />
+                            <XAxis 
+                              type="number" 
+                              dataKey="weight" 
+                              name="Weight"
+                              // unit="g"
+                              domain={weightDomain}
+                              allowDataOverflow={false}
+                              stroke={isDarkMode ? '#9ca3af' : '#6b7280'}
+                              tick={{ fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 11 }}
+                              label={{ value: 'Weight (g)', position: 'bottom', offset: 0, style: { fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 11 } }}
+                            />
+                            <YAxis 
+                              type="number" 
+                              dataKey="mc" 
+                              name="Making Charge"
+                              // unit="%"
+                              domain={mcDomain}
+                              allowDataOverflow={false}
+                              stroke={isDarkMode ? '#9ca3af' : '#6b7280'}
+                              tick={{ fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 11 }}
+                              label={{ value: 'MC %', angle: -90, position: 'insideLeft', style: { fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 11 } }}
+                            />
+                            <ZAxis range={[60, 400]} />
+                            <Tooltip 
+                              cursor={{ strokeDasharray: '3 3' }}
+                              contentStyle={{
+                                backgroundColor: isDarkMode ? '#18181b' : '#ffffff',
+                                border: `2px solid ${isDarkMode ? '#52525b' : '#d4d4d8'}`,
+                                borderRadius: '10px',
+                                padding: '12px 16px',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                color: isDarkMode ? '#fafafa' : '#18181b',
+                                boxShadow: isDarkMode 
+                                  ? '0 10px 25px rgba(0, 0, 0, 0.5)' 
+                                  : '0 10px 25px rgba(0, 0, 0, 0.15)',
+                                letterSpacing: '0.02em',
+                                fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
+                              }}
+                              labelStyle={{
+                                display: 'none'
+                              }}
+                              itemStyle={{
+                                padding: '4px 0',
+                                fontWeight: '600',
+                                color: isDarkMode ? '#ffffff' : '#000000'
+                              }}
+                              formatter={(value, name) => {
+                                const brandColor = selectedBrand?.iconColor?.includes('rose') ? '#f43f5e' : 
+                                      selectedBrand?.iconColor?.includes('amber') ? '#f59e0b' :
+                                      selectedBrand?.iconColor?.includes('orange') ? '#f97316' :
+                                      selectedBrand?.iconColor?.includes('yellow') ? '#eab308' : '#3b82f6';
+                                
+                                if (name === 'Making Charge') {
+                                  return [
+                                    <span key="mc" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ 
+                                        color: isDarkMode ? '#ffffff' : '#000000',
+                                        fontWeight: '600',
+                                        fontSize: '13px'
+                                      }}>MC :</span>
+                                      <span style={{ 
+                                        color: brandColor,
+                                        fontWeight: '800',
+                                        fontSize: '16px',
+                                        fontFamily: 'ui-monospace, "Courier New", monospace'
+                                      }}>{value}%</span>
+                                    </span>
+                                  ];
+                                }
+                                if (name === 'Weight') {
+                                  return [
+                                    <span key="weight" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ 
+                                        color: isDarkMode ? '#ffffff' : '#000000',
+                                        fontWeight: '600',
+                                        fontSize: '13px'
+                                      }}>Weight :</span>
+                                      <span style={{ 
+                                        color: brandColor,
+                                        fontWeight: '800',
+                                        fontSize: '16px',
+                                        fontFamily: 'ui-monospace, "Courier New", monospace'
+                                      }}>{value}g</span>
+                                    </span>
+                                  ];
+                                }
+                                return [value, name];
+                              }}
+                            />
+                            <Scatter 
+                              data={scatterData} 
+                              fill={selectedBrand?.iconColor?.includes('rose') ? '#f43f5e' : 
+                                    selectedBrand?.iconColor?.includes('amber') ? '#f59e0b' :
+                                    selectedBrand?.iconColor?.includes('orange') ? '#f97316' :
+                                    selectedBrand?.iconColor?.includes('yellow') ? '#eab308' : '#3b82f6'}
+                              fillOpacity={0.6}
+                            />
+                          </ScatterChart>
+                        </ResponsiveContainer>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className={`rounded-2xl border p-4 ${styles.borderColor}`}>
