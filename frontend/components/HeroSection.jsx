@@ -65,6 +65,45 @@
     </svg>
   );
 
+  const GoldFlourish = ({ mirrored = false }) => (
+    <svg
+      viewBox="0 0 220 70"
+      className={`w-24 h-8 md:w-32 md:h-10 ${mirrored ? 'scale-x-[-1]' : ''}`}
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="flourish-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#9b6b16" />
+          <stop offset="40%" stopColor="#f3d36a" />
+          <stop offset="70%" stopColor="#fff0a5" />
+          <stop offset="100%" stopColor="#a46d15" />
+        </linearGradient>
+      </defs>
+
+      <path
+        d="M8 52 C34 24, 66 15, 110 26 C135 32, 165 30, 205 12"
+        fill="none"
+        stroke="url(#flourish-gold)"
+        strokeWidth="5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M48 35 C66 28, 78 14, 82 8 C90 22, 81 34, 67 36"
+        fill="none"
+        stroke="url(#flourish-gold)"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M84 34 C95 30, 105 18, 109 12 C116 24, 111 35, 99 38"
+        fill="none"
+        stroke="url(#flourish-gold)"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+
   export const HeroSection = ({
     isDarkMode,
     onScrollToEstimator,
@@ -129,7 +168,23 @@
             </div>
           </button>
 
-          <div className={`hero-rates-panel mt-24 w-screen -mx-4 overflow-hidden border-y backdrop-blur-md shadow-2xl transition-all duration-500 ${isDarkMode ? 'bg-stone-900/40 border-stone-800 shadow-black/50' : 'bg-white/60 border-stone-200 shadow-stone-200/50'}`}>
+          <div className="relative mt-16 mb-4 flex items-center justify-center gap-2 md:gap-6 w-screen -mx-4 px-4 md:px-8">
+            <div className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 pointer-events-none opacity-90 z-10">
+              <GoldFlourish />
+            </div>
+
+            <span className={`h-px flex-1 ${isDarkMode ? 'bg-amber-500/50' : 'bg-amber-700/40'}`}></span>
+            <h2 className={`text-base md:text-lg font-semibold tracking-[0.22em] uppercase shrink-0 ${isDarkMode ? 'text-amber-300' : 'text-amber-800'}`}>
+              Live Rates
+            </h2>
+            <span className={`h-px flex-1 ${isDarkMode ? 'bg-amber-500/50' : 'bg-amber-700/40'}`}></span>
+
+            <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 pointer-events-none opacity-90 z-10">
+              <GoldFlourish mirrored />
+            </div>
+          </div>
+
+          <div className={`hero-rates-panel mt-3 w-screen -mx-4 overflow-hidden border-y backdrop-blur-md shadow-2xl transition-all duration-500 ${isDarkMode ? 'bg-stone-900/40 border-stone-800 shadow-black/50' : 'bg-white/60 border-stone-200 shadow-stone-200/50'}`}>
             {/* Mobile: stacked cards */}
             <div className="block sm:hidden px-4 py-4 space-y-3">
               {loading ? (
