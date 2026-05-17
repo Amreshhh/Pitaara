@@ -19,9 +19,8 @@ export const FeedbackSection = ({ isDarkMode }) => {
     const trimmed = value.trim();
     // normalize to digits for phone check
     const digits = (trimmed || '').replace(/\D/g, '');
-    const isPhone = digits.length === 10;
-    const isGmail = /^[^\s@]+@gmail\.com$/i.test(trimmed);
-    return isPhone || isGmail;
+    const isPhone = digits.length === 10 && /^[6789]/.test(digits);
+    return isPhone;
   };
 
   const handleChange = (event) => {
@@ -49,7 +48,7 @@ export const FeedbackSection = ({ isDarkMode }) => {
 
     if (!isValidContact(contact)) {
       setStatusMessage('');
-      setErrorMessage('Enter a valid phone number or a Gmail address.');
+      setErrorMessage('Enter a valid 10-digit mobile number ');
       return;
     }
 
@@ -127,21 +126,21 @@ export const FeedbackSection = ({ isDarkMode }) => {
 
           <div>
             <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${styles.textMuted}`}>
-              Gmail / Number
+              Mobile Number
             </label>
             <input
               type="text"
               name="contact"
               value={formState.contact}
               onChange={handleChange}
-              placeholder="mobile number or you@gmail.com"
+              placeholder="10-digit mobile number"
               inputMode="tel"
               autoComplete="off"
               required
               className={`w-full rounded-xl border px-4 py-3 text-base outline-none transition-all duration-300 focus:ring-2 focus:ring-amber-400/40 ${styles.inputBg} ${styles.borderColor} ${styles.textMain}`}
             />
             <p className={`mt-2 text-[11px] ${styles.textMuted}`}>
-              Enter a 10-digit mobile number or a Gmail address only.
+              Enter a 10-digit mobile number only.
             </p>
           </div>
         </div>

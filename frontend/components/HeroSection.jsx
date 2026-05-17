@@ -222,11 +222,11 @@
               <GoldFlourish />
             </div>
 
-            <span className={`h-px flex-1 ${isDarkMode ? 'bg-amber-500/50' : 'bg-amber-700/40'}`}></span>
-            <h2 className={`text-base md:text-lg font-semibold tracking-[0.22em] uppercase shrink-0 ${isDarkMode ? 'text-amber-300' : 'text-amber-800'}`}>
+            <span className={`h-px flex-1 ${isDarkMode ? 'bg-orange-500/50' : 'bg-amber-700/40'}`}></span>
+            <h2 className={`text-base md:text-lg font-semibold tracking-[0.22em] uppercase shrink-0 ${isDarkMode ? 'text-orange-400' : 'text-amber-800'}`}>
               Live Rates
             </h2>
-            <span className={`h-px flex-1 ${isDarkMode ? 'bg-amber-500/50' : 'bg-amber-700/40'}`}></span>
+            <span className={`h-px flex-1 ${isDarkMode ? 'bg-orange-500/50' : 'bg-amber-700/40'}`}></span>
 
             <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 pointer-events-none opacity-90 z-10">
               <GoldFlourish mirrored />
@@ -248,7 +248,7 @@
                       {rateData._stale && rateData.Brand === 'Tanishq' ? (
                         <span title="Today rate updating soon" className="inline-flex items-center gap-2">
                           {rateData.Brand}
-                          <span className="text-[11px] text-amber-400">(updating)</span>
+                          <span className={`text-[11px] ${isDarkMode ? 'text-orange-400' : 'text-amber-400'}`}>(updating)</span>
                         </span>
                       ) : (
                         rateData.Brand
@@ -260,7 +260,7 @@
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className={`rounded-xl border px-3 py-2 ${isDarkMode ? 'border-stone-800 bg-stone-950/40' : 'border-stone-200 bg-stone-50/80'}`}>
                         <div className={`text-[10px] uppercase tracking-[0.14em] ${styles.textMuted}`}>24K</div>
-                        <div className={`mt-1 font-semibold ${isDarkMode ? 'text-amber-400' : 'text-amber-700'}`}>₹{rateData['24K']?.toLocaleString('en-IN') || 'N/A'}</div>
+                        <div className={`mt-1 font-semibold ${isDarkMode ? 'text-orange-400' : 'text-amber-700'}`}>₹{rateData['24K']?.toLocaleString('en-IN') || 'N/A'}</div>
                       </div>
                       <div className={`rounded-xl border px-3 py-2 ${isDarkMode ? 'border-stone-800 bg-stone-950/40' : 'border-stone-200 bg-stone-50/80'}`}>
                         <div className={`text-[10px] uppercase tracking-[0.14em] ${styles.textMuted}`}>22K</div>
@@ -286,7 +286,7 @@
                 <thead className={`text-sm uppercase tracking-widest ${isDarkMode ? 'bg-stone-950/80 text-stone-500' : 'bg-stone-100/80 text-stone-500'}`}>
                   <tr>
                     <th className="px-4 py-4 md:px-8 md:py-5 font-medium">Brand</th>
-                    <th className="px-4 py-4 md:px-8 md:py-5 font-medium text-right  text-amber-600 dark:text-amber-500">24K</th>
+                    <th className="px-4 py-4 md:px-8 md:py-5 font-medium text-right  text-amber-600 dark:text-orange-500">24K</th>
                     <th className="px-4 py-4 md:px-8 md:py-5 font-medium text-right">22K</th>
                     <th className="px-4 py-4 md:px-8 md:py-5 font-medium text-right">18K</th>
                     <th className="px-4 py-4 md:px-8 md:py-5 font-medium text-right">14K</th>
@@ -306,13 +306,13 @@
                           {rateData._stale && rateData.Brand === 'Tanishq' ? (
                             <span title="Today rate updating soon" className="inline-flex items-center gap-2">
                               {rateData.Brand}
-                              <span className="text-[12px] text-amber-400">(updating)</span>
+                              <span className={`text-[12px] ${isDarkMode ? 'text-orange-400' : 'text-amber-400'}`}>(updating)</span>
                             </span>
                           ) : (
                             rateData.Brand || 'Unknown'
                           )}
                         </td>
-                        <td className={`px-4 py-4 md:px-8 md:py-6 text-right text-lg md:text-xl font-bold ${isDarkMode ? 'text-amber-400' : 'text-amber-700'}`}>
+                        <td className={`px-4 py-4 md:px-8 md:py-6 text-right text-lg md:text-xl font-bold ${isDarkMode ? 'text-orange-400' : 'text-amber-700'}`}>
                           ₹{rateData['24K']?.toLocaleString('en-IN') || 'N/A'}
                         </td>
                         <td className="px-4 py-4 md:px-8 md:py-6 text-right">₹{rateData['22K']?.toLocaleString('en-IN') || 'N/A'}</td>

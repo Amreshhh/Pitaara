@@ -405,13 +405,19 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                     const chartOptions = {
                       chart: {
                         type: 'scatter',
-                        zoom: { enabled: true, type: 'xy' },
+                        zoom: { enabled: false },
                         toolbar: { show: false },
                         background: 'transparent',
+                        selection: { enabled: false },
                         animations: {
                           enabled: true,
                           speed: 800,
                           animateGradually: { enabled: true, delay: 150 },
+                        },
+                        events: {
+                          beforeZoom: () => false,
+                          beforeResetZoom: () => false,
+                          zoomed: () => false,
                         },
                       },
                       theme: { mode: isDarkMode ? 'dark' : 'light' },
@@ -422,6 +428,8 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                         max: weightMax,
                         decimalsInFloat: 1,
                         labels: { style: { fontSize: '11px' } },
+                        axisBorder: { show: true },
+                        axisTicks: { show: true },
                       },
                       yaxis: {
                         title: { text: 'Making Charge %', style: { fontSize: '12px', fontWeight: 600 } },
@@ -429,6 +437,8 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                         max: mcMax,
                         decimalsInFloat: 1,
                         labels: { style: { fontSize: '11px' } },
+                        axisBorder: { show: true },
+                        axisTicks: { show: true },
                       },
                       grid: {
                         borderColor: isDarkMode ? '#374151' : '#e5e7eb',
@@ -442,7 +452,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                         strokeOpacity: 0.8,
                         strokeColors: [brandColor],
                         fillOpacity: 0.65,
-                        hover: { size: 8, sizeOffset: 2 },
+                        hover: { size: 7, sizeOffset: 1 },
                       },
                       tooltip: {
                         custom: ({ seriesIndex, dataPointIndex, w }) => {
