@@ -102,7 +102,7 @@ export default function App() {
   const estimatorRef = useRef(null);
 
   // 🔥 Destructure cache status and last updated time
-  const { liveRates, loading, cacheStatus, lastUpdated } = useLiveRates();
+  const { liveRates, loading, cacheStatus, lastUpdated, isPreviousDay } = useLiveRates();
   const results = useGoldCalculator(inputs, calcTrigger);
   const styles = getThemeStyles(isDarkMode);
 
@@ -286,7 +286,7 @@ export default function App() {
                 : 'bg-amber-50/40 border-amber-200/50'
             }`}>
               <p className={`mb-2 text-lg font-semibold ${styles.textMain}`}>📊 Inventory blueprint of all listed brands</p>
-              <p className={`text-sm font-medium ${styles.textMuted}`}>Note: Data displayed is Highly accurate</p>
+              <p className={`text-sm font-medium ${styles.textMuted}`}>Note: Closest to the in-store inventory of brands</p>
             </div>
             <div className="mb-6">
               <SectionDivider isDarkMode={isDarkMode} showFlourish={false} />
