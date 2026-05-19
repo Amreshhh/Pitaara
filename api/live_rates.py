@@ -1,7 +1,7 @@
 import asyncio
 import re
 import time
-from typing import Dict, Optional
+from typing import Dict, Optional, Iterable
 from curl_cffi.requests import AsyncSession
 from selectolax.parser import HTMLParser
 
@@ -17,6 +17,56 @@ def get_no_cache_headers():
 # ==========================================
 # 1. TANISHQ (DOM Parsing + Reverse Math)
 # ==========================================
+def _extract_numeric_price(text: str) -> Optional[int]:
+    if not text:
+        return None
+
+    match = re.search(r'₹?\s*([\d,]+(?:\.\d+)?)', text)
+    if not match:
+        return None
+
+    raw = match.group(1).replace(',', '')
+    try:
+        value = float(raw)
+    except Exception:
+        return None
+
+    if not value or value <= 0:
+        return None
+
+    return int(round(value))
+
+
+def _iter_candidate_nodes(tree: HTMLParser, selectors: Iterable[str]):
+    for selector in selectors:
+        try:
+            node = tree.css_first(selector)
+        except Exception:
+            node = None
+        if node:
+            yield selector, node
+
+
+def _normalize_tanishq_rate(rate: int) -> int:
+    """Normalize scraped Tanishq rates to per-10g values."""
+    if rate <= 0:
+        return rate
+
+    num_digits = len(str(int(rate)))
+
+    # Keep the existing intent, but make the normalization less brittle.
+    # Tanishq may expose 4-digit, 5-digit, or 6-digit values depending on the
+    # table format and whether the source is per-gram or per-10g.
+    if num_digits <= 3:
+        return rate * 100
+    if num_digits == 4:
+        return rate * 10
+    if num_digits >= 6:
+        return int(round(rate / 10))
+
+    return rate
+
+
 async def fetch_tanishq(session):
     print("📡 Fetching Tanishq...")
     url = f"https://www.tanishq.co.in/gold-rate.html?lang=en_IN"
@@ -26,46 +76,47 @@ async def fetch_tanishq(session):
         tree = HTMLParser(response.text)
 
         rate_22k: Optional[int] = None
-        
-        table_22k = tree.css_first('table.goldrate-table.fixedhgt.goldrate-table-22kt')        
-        
-        if table_22k:
-            first_row = table_22k.css_first('tbody tr')
-            if first_row:
-                tds = first_row.css('td')
-                if len(tds) >= 2:
-                    today_rate_text = tds[1].text(strip=True)
-                    m = re.search(r'₹?\s*([\d,]+)', today_rate_text)
-                    if m:
-                        num = m.group(1).replace(',', '')
-                        if num.isdigit():
-                            # Extract raw number WITHOUT dividing by 10
-                            # Let normalization handle digit standardization
-                            rate_22k = int(num)
+
+        candidate_selectors = [
+            'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:nth-child(2)',
+            'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:last-child',
+            'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child',
+            'table.goldrate-table.goldrate-table-22kt tbody tr:first-child td:nth-child(2)',
+            'table.goldrate-table.goldrate-table-22kt tbody tr:first-child',
+            'table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child td:nth-child(2)',
+            'table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child',
+        ]
+
+        for selector, node in _iter_candidate_nodes(tree, candidate_selectors):
+            texts = []
+            try:
+                texts.append(node.text(strip=True))
+            except Exception:
+                pass
+
+            try:
+                for td in node.css('td'):
+                    texts.append(td.text(strip=True))
+            except Exception:
+                pass
+
+            for text in texts:
+                extracted = _extract_numeric_price(text)
+                if extracted:
+                    rate_22k = extracted
+                    break
+
+            if rate_22k:
+                print(f"✅ Tanishq matched selector: {selector}")
+                break
 
         if not rate_22k:
-            print("⚠️ Tanishq live DOM failed.")
+            print("⚠️ Tanishq live DOM failed: no numeric rate found in candidate selectors.")
             return None
 
-        # 🚀 THE MATH CALCULATIONS
+        rate_22k = _normalize_tanishq_rate(rate_22k)
 
-        # 1. Safely count the digits (ignoring any decimals)
-        num_digits = len(str(int(rate_22k)))
-
-        # 2. Standardize to a 5-digit rate (price per 10 grams in standard range: 10000-15000)
-        # Handle all input cases robustly
-        if num_digits <= 3:
-            # Too small (likely per-gram: 139) → multiply by 100
-            rate_22k = rate_22k * 100
-        elif num_digits == 4:
-            # Standard range for per-10g: 1390 → multiply by 10
-            rate_22k = rate_22k * 10
-        elif num_digits == 6:
-            # Too large (likely per-gram with extra zero) → divide by 10
-            rate_22k = rate_22k / 10
-        # If exactly 5 digits, it's already perfect - do nothing
-
-        # 3. Calculate other purities based on the standardized 22k rate
+        # Calculate other purities based on the standardized 22k rate.
         rate_24k = int(round(rate_22k * (24.0 / 22.0)))
         rate_18k = int(round(rate_24k * (18.0 / 24.0)))
         rate_14k = int(round(rate_24k * (14.0 / 24.0)))

@@ -50,6 +50,23 @@ async def _save_live_rates_payload_to_mongo(payload: dict):
         print(f"⚠️ Failed to persist live rates to Mongo: {e}")
 
 
+def _is_rates_from_today(last_updated_str):
+    """Check if the rates are from today."""
+    try:
+        if not last_updated_str:
+            return False
+        
+        # Parse the last_updated timestamp (format: "YYYY-MM-DD HH:MM:SS")
+        from datetime import datetime
+        rate_date = datetime.strptime(last_updated_str, "%Y-%m-%d %H:%M:%S").date()
+        today = datetime.now().date()
+        
+        return rate_date == today
+    except Exception as e:
+        print(f"⚠️ Error checking rate freshness: {e}")
+        return False
+
+
 async def _load_live_rates_payload_from_mongo():
     """Load the latest stored live-rate payload from MongoDB."""
     try:
@@ -58,6 +75,19 @@ async def _load_live_rates_payload_from_mongo():
         if doc:
             # Remove MongoDB's _id from the response
             doc.pop("_id", None)
+            
+            # Check if rates are from today
+            last_updated = doc.get("last_updated")
+            is_today = _is_rates_from_today(last_updated)
+            
+            if not is_today:
+                # Mark as stale/previous day rates
+                doc["cache_status"] = "stale"
+                doc["is_previous_day"] = True
+                print(f"⚠️ Using previous day rates (last updated: {last_updated})")
+            else:
+                doc["is_previous_day"] = False
+            
             return doc
         return None
     except Exception as error:
@@ -566,12 +596,32 @@ async def get_brand_products_in_elastic_range(
 async def get_live_rates():
     """
     Returns the latest stored live rates from Mongo Cron_live_rates collection.
+    Falls back to previous day's rates if today's rates are not available.
     """
     payload = await _load_live_rates_payload_from_mongo()
+    
     if payload:
+        # Check if rates are from previous day
+        if payload.get("is_previous_day"):
+            print("📅 Serving previous day rates as fallback")
+            # Trigger background refresh for today's rates (non-blocking)
+            asyncio.create_task(_fetch_and_update_rates_background())
         return payload
-
+    
+    # No cached rates at all, fetch fresh
+    print("🔄 No cached rates found, fetching fresh rates")
     return await _fetch_latest_live_rates_payload()
+
+
+async def _fetch_and_update_rates_background():
+    """Background task to fetch and update rates without blocking the response."""
+    try:
+        print("🔄 Background: Fetching fresh rates...")
+        fresh_payload = await _fetch_latest_live_rates_payload()
+        print("✅ Background: Fresh rates fetched and saved")
+        return fresh_payload
+    except Exception as e:
+        print(f"⚠️ Background fetch failed: {e}")
 
 
 # CRON ENDPOINT: Secure trigger for cache update (Called by Vercel Cron)
@@ -595,6 +645,87 @@ async def update_rates_cron(authorization: str = Header(None)):
 
     print("✅ Authorized cron execution starting...")
     return await _fetch_latest_live_rates_payload()
+
+
+@app.get("/api/live-rates/fetch-tanishq")
+async def fetch_tanishq_on_demand():
+    """
+    On-demand Tanishq rate fetcher.
+    Fetches Tanishq rates, updates MongoDB cache, and returns the result.
+    Used when Tanishq is missing from cached rates.
+    """
+    try:
+        async with AsyncSession(impersonate="chrome124") as session:
+            print("📡 On-demand Tanishq fetch initiated...")
+            
+            # Fetch Tanishq with 5-second timeout
+            tanishq_result = await asyncio.wait_for(
+                fetch_tanishq(session), 
+                timeout=5.0
+            )
+            
+            if not tanishq_result:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Failed to fetch Tanishq rates"
+                )
+            
+            # Load existing payload from MongoDB
+            payload = await _load_live_rates_payload_from_mongo()
+            
+            if payload:
+                # Remove old Tanishq entry if exists
+                rates = payload.get("rates", [])
+                rates = [r for r in rates if r.get("Brand") != "Tanishq"]
+                
+                # Add fresh Tanishq rate
+                tanishq_result["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                rates.append(tanishq_result)
+                
+                payload["rates"] = rates
+                payload["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Save updated payload to MongoDB
+                await _save_live_rates_payload_to_mongo(payload)
+                print("✅ Tanishq rate updated in MongoDB cache")
+                
+                return {
+                    "status": "success",
+                    "message": "Tanishq rate fetched and cached",
+                    "rate": tanishq_result,
+                    "full_payload": payload
+                }
+            else:
+                # No existing payload, create new one with just Tanishq
+                new_payload = {
+                    "status": "success",
+                    "cache_status": "live",
+                    "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "rates": [tanishq_result]
+                }
+                await _save_live_rates_payload_to_mongo(new_payload)
+                
+                return {
+                    "status": "success",
+                    "message": "Tanishq rate fetched (first cache entry)",
+                    "rate": tanishq_result,
+                    "full_payload": new_payload
+                }
+                
+    except asyncio.TimeoutError:
+        print("⏱️ Tanishq on-demand fetch timed out after 5 seconds")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Tanishq fetch timed out after 5 seconds"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"⚠️ Tanishq on-demand fetch failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch Tanishq: {str(e)}"
+        )
 
 
 @app.get("/api/live-rates/check")

@@ -249,6 +249,8 @@ export default function App() {
         onScrollToEstimator={scrollToEstimator}
         liveRates={liveRates}
         loading={loading}
+        isPreviousDay={isPreviousDay}
+        lastUpdated={lastUpdated}
         heading="Pitaara"
         eyebrow="by"
         brandLine="Om-Rani"

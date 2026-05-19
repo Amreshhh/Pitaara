@@ -158,6 +158,8 @@
     onScrollToEstimator,
     liveRates = [],
     loading = false,
+    isPreviousDay = false,
+    lastUpdated = null,
     heading = 'Pitaara',
     eyebrow = 'by',
     brandLine = 'Om-Rani',
@@ -233,7 +235,21 @@
             </div>
           </div>
 
-          <div className={`hero-rates-panel mt-3 w-screen -mx-4 overflow-hidden border-y backdrop-blur-md shadow-2xl transition-all duration-500 ${isDarkMode ? 'bg-stone-900/40 border-stone-800 shadow-black/50' : 'bg-white/60 border-stone-200 shadow-stone-200/50'}`}>
+          {/* Previous Day Rates Indicator */}
+          {isPreviousDay && (
+            <div className={`w-screen -mx-4 px-4 py-3 text-center border-y backdrop-blur-md ${isDarkMode ? 'bg-amber-900/20 border-amber-700/30 text-amber-200' : 'bg-amber-50/80 border-amber-200 text-amber-800'}`}>
+              <div className="flex items-center justify-center gap-2 text-sm">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-medium">
+                  Showing yesterday's rates ({lastUpdated}) — Fresh rates updating in background
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className={`hero-rates-panel ${isPreviousDay ? '' : 'mt-3'} w-screen -mx-4 overflow-hidden border-y backdrop-blur-md shadow-2xl transition-all duration-500 ${isDarkMode ? 'bg-stone-900/40 border-stone-800 shadow-black/50' : 'bg-white/60 border-stone-200 shadow-stone-200/50'}`}>
             {/* Mobile: stacked cards */}
             <div className="block sm:hidden px-4 py-4 space-y-3">
               {loading ? (
