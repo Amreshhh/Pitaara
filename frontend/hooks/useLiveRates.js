@@ -88,20 +88,34 @@ export const useLiveRates = () => {
       // Normalize
       let processedRates = normalizeLiveRates(data, cachedMap);
 
-      // Handle Missing Tanishq On-Demand
-      const hasTanishq = processedRates.some((r) => r.Brand === 'Tanishq');
-      if (!hasTanishq) {
+      // 🔥 Check for ALL missing brands (Tanishq, Kalyan, Malabar, Senco)
+      const requiredBrands = ['Tanishq', 'Kalyan', 'Malabar', 'Senco'];
+      const presentBrands = new Set(processedRates.map((r) => r.Brand));
+      const missingBrands = requiredBrands.filter((b) => !presentBrands.has(b));
+
+      if (missingBrands.length > 0) {
+        console.log(`[useLiveRates] Missing brands detected: ${missingBrands.join(', ')}`);
+        
+        // Trigger backend check (which auto-refetches if missing)
         try {
-          console.log('[useLiveRates] Tanishq missing, attempting on-demand fetch...');
-          const tanishqRes = await fetch('/api/live-rates/fetch-tanishq');
-          if (tanishqRes.ok) {
-            const tanishqData = await tanishqRes.json();
-            if (tanishqData.rate) {
-              processedRates = mergeTanishqRate(processedRates, tanishqData.rate);
+          console.log('[useLiveRates] Calling /api/live-rates/check to trigger backend refresh...');
+          const checkRes = await fetch('/api/live-rates/check');
+          if (checkRes.ok) {
+            const checkResult = await checkRes.json();
+            console.log('[useLiveRates] Check result:', checkResult);
+            
+            // If backend refetched, fetch fresh rates again
+            if (checkResult.refetched) {
+              console.log('[useLiveRates] Backend refetched, fetching updated rates...');
+              const freshRes = await fetch('/api/live-rates');
+              if (freshRes.ok) {
+                const freshData = await freshRes.json();
+                processedRates = normalizeLiveRates(freshData, cachedMap);
+              }
             }
           }
         } catch (e) {
-          console.error('[useLiveRates] Tanishq on-demand fetch error:', e);
+          console.error('[useLiveRates] Check endpoint error:', e);
         }
       }
 

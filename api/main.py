@@ -757,6 +757,47 @@ async def check_live_rates():
             "⚠️ Stored live rates have missing/incomplete brands; attempting immediate refetch: "
             f"missing={result['missing_brands']}, incomplete={result['incomplete_brands']}"
         )
+        
+        # 🔥 If Tanishq is specifically missing, use dedicated fetcher with 5s timeout
+        missing_brands = result.get("missing_brands", [])
+        if "Tanishq" in missing_brands:
+            print("🎯 Tanishq is missing - attempting on-demand fetch with 5s timeout...")
+            try:
+                async with AsyncSession(impersonate="chrome124") as session:
+                    tanishq_result = await asyncio.wait_for(
+                        fetch_tanishq(session), 
+                        timeout=5.0
+                    )
+                    
+                    if tanishq_result:
+                        # Update payload with fresh Tanishq
+                        rates = payload.get("rates", [])
+                        rates = [r for r in rates if r.get("Brand") != "Tanishq"]
+                        tanishq_result["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                        rates.append(tanishq_result)
+                        
+                        payload["rates"] = rates
+                        payload["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                        payload["cache_status"] = "live"
+                        
+                        await _save_live_rates_payload_to_mongo(payload)
+                        print("✅ Tanishq updated via dedicated fetcher")
+                        
+                        # Re-evaluate after Tanishq update
+                        result = _evaluate_live_rates_payload(payload)
+                        if not result["needs_fetch"]:
+                            return {
+                                "status": "partial-refetch",
+                                "refetched": True,
+                                **result,
+                            }
+            except asyncio.TimeoutError:
+                print("⏱️ Tanishq on-demand fetch timed out after 5 seconds")
+            except Exception as e:
+                print(f"⚠️ Tanishq on-demand fetch failed: {e}")
+        
+        # If still missing brands (or Tanishq fetch failed), do full refresh
+        print("🔄 Full refresh: Fetching all 4 brands...")
         refreshed = await _fetch_latest_live_rates_payload()
         refreshed_result = _evaluate_live_rates_payload(refreshed)
         return {
@@ -1433,5 +1474,4 @@ async def get_inventory_categories():
     except Exception as e:
         print(f"❌ Error in get_inventory_categories: {e}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error fetching categories: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching categories: {str(e)}")
