@@ -1,6 +1,6 @@
 {
   "name": "Om-Rani Jewellery Calculator",
-  "short_name": "OmRani",
+  "short_name": "Pitaara",
   "description": "Live gold rates and accurate jewellery calculations.",
   "start_url": "/",
   "display": "standalone",
@@ -9,7 +9,7 @@
   "icons": [
     {
       "src": "/logo1.svg",
-      "sizes": "192x192",
+      "sizes": "512x512",
       "type": "image/svg+xml"
     },
     {
