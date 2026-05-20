@@ -18,6 +18,15 @@ from email.message import EmailMessage
 import traceback
 import json
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
+
+# Timezone handling for IST (India Standard Time = UTC+5:30)
+try:
+    from zoneinfo import ZoneInfo
+    IST = ZoneInfo("Asia/Kolkata")
+except ImportError:
+    # Fallback for Python < 3.9
+    IST = timezone(timedelta(hours=5, minutes=30), "IST")
 
 
 # Live rates scraping imports
@@ -33,6 +42,16 @@ load_dotenv()
 
 # Mongo collection for storing live rates (persisted across serverless invocations)
 LIVE_RATES_COLLECTION = "Cron_live_rates"
+
+
+def _get_ist_timestamp():
+    """Get current timestamp in IST (India Standard Time) format.
+    
+    IMPORTANT: Always use this for storing timestamps so they're consistent
+    whether the server runs in UTC (Vercel) or IST (localhost).
+    """
+    now_ist = datetime.now(IST)
+    return now_ist.strftime("%Y-%m-%d %H:%M:%S")
 
 
 async def _save_live_rates_payload_to_mongo(payload: dict):
@@ -51,17 +70,25 @@ async def _save_live_rates_payload_to_mongo(payload: dict):
 
 
 def _is_rates_from_today(last_updated_str):
-    """Check if the rates are from today."""
+    """Check if the rates are from today (in IST timezone for India users)."""
     try:
         if not last_updated_str:
             return False
         
         # Parse the last_updated timestamp (format: "YYYY-MM-DD HH:MM:SS")
-        from datetime import datetime
-        rate_date = datetime.strptime(last_updated_str, "%Y-%m-%d %H:%M:%S").date()
-        today = datetime.now().date()
+        # IMPORTANT: Stored timestamps are in IST, so parse and compare in IST
+        parsed = datetime.strptime(last_updated_str, "%Y-%m-%d %H:%M:%S")
         
-        return rate_date == today
+        # Get current time in IST (India Standard Time)
+        now_ist = datetime.now(IST)
+        today_ist = now_ist.date()
+        
+        # The stored date is already in IST format
+        rate_date = parsed.date()
+        
+        print(f"🕐 Freshness check: stored={last_updated_str} (date={rate_date}), today_IST={today_ist}, match={rate_date == today_ist}")
+        
+        return rate_date == today_ist
     except Exception as e:
         print(f"⚠️ Error checking rate freshness: {e}")
         return False
@@ -118,7 +145,7 @@ async def _fetch_latest_live_rates_payload():
     payload = {
         "status": "success",
         "cache_status": "live",
-        "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "last_updated": _get_ist_timestamp(),
         "rates": rates,
     }
 
@@ -679,11 +706,11 @@ async def fetch_tanishq_on_demand():
                 rates = [r for r in rates if r.get("Brand") != "Tanishq"]
                 
                 # Add fresh Tanishq rate
-                tanishq_result["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                tanishq_result["last_updated"] = _get_ist_timestamp()
                 rates.append(tanishq_result)
                 
                 payload["rates"] = rates
-                payload["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                payload["last_updated"] = _get_ist_timestamp()
                 
                 # Save updated payload to MongoDB
                 await _save_live_rates_payload_to_mongo(payload)
@@ -700,7 +727,7 @@ async def fetch_tanishq_on_demand():
                 new_payload = {
                     "status": "success",
                     "cache_status": "live",
-                    "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "last_updated": _get_ist_timestamp(),
                     "rates": [tanishq_result]
                 }
                 await _save_live_rates_payload_to_mongo(new_payload)
@@ -773,11 +800,11 @@ async def check_live_rates():
                         # Update payload with fresh Tanishq
                         rates = payload.get("rates", [])
                         rates = [r for r in rates if r.get("Brand") != "Tanishq"]
-                        tanishq_result["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                        tanishq_result["last_updated"] = _get_ist_timestamp()
                         rates.append(tanishq_result)
                         
                         payload["rates"] = rates
-                        payload["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                        payload["last_updated"] = _get_ist_timestamp()
                         payload["cache_status"] = "live"
                         
                         await _save_live_rates_payload_to_mongo(payload)
