@@ -1,174 +1,88 @@
-# Pitaara - Real-Time Gold Calculator
+# Pitaara — Gold Rates Scraper & Calculator
 
-Real-time gold price estimation across India's top jewellers with live rate scraping, instant calculations, and beautiful UI.
+This repository contains the backend scrapers and a Next.js frontend used to aggregate live gold rates from multiple jewellers and provide instant price calculations.
 
-## 🎯 Features
+Key components:
+- `api/` — FastAPI backend providing live-rates, brand summaries and webhook endpoints.
+- `backend/` — historical scraping helpers and ad-hoc scripts used for data processing.
+- `frontend/` — Next.js (app directory) UI and client logic.
 
-- **Live Rate Scraping**: Auto-fetch gold rates from Tanishq, Malabar, Senco, Candere
-- **Instant Calculation**: Price breakdowns with gold value, making charges, GST
-- **Smart Caching**: Preserves rates on scraper failure; daily 12:00 PM updates
-- **Dark/Light Theme**: Beautiful responsive UI with TailwindCSS
-- **Coin Category**: Special handling for coin gold purchases
-- **Range Search**: Flexible product search with elastic buffering
+This README focuses on getting the project running locally and explains where to find key code and docs.
 
-## 🚀 Quick Start (Local)
+## Quick Start (Local)
 
 ### Prerequisites
 - Node.js 18+
 - Python 3.9+
 - MongoDB (Atlas or local)
 
-### Setup
+### Run the backend (development)
 
 ```bash
-# 1. Clone and install dependencies
-git clone https://github.com/YOUR_USERNAME/pythonscrapper.git
-cd pythonscrapper
+# from repository root
+python -m pip install -r api/requirements.txt
+# start FastAPI app
+uvicorn api.main:app --reload --port 8000
+```
 
-# 2. Backend setup
-cd connection
-cp .env.example .env
-# Edit .env with MONGO_URI
-pip install -r requirements.txt
-uvicorn main:app --reload
+The backend exposes endpoints under `http://localhost:8000/api/...`.
 
-# 3. Frontend setup (new terminal)
+### Run the frontend (development)
+
+```bash
 cd frontend
 npm install
 npm run dev
-
-# 4. Visit http://localhost:3000
 ```
 
-## 📁 Project Structure
+Frontend will be available at `http://localhost:3000` by default.
 
-See [STRUCTURE.md](STRUCTURE.md) for detailed folder organization.
+## Environment variables
+Create an `.env` file (or set env vars in your run environment). Common variables used by this project:
 
-```
-pythonscrapper/
-├── frontend/         # Next.js app (localhost:3000)
-├── connection/       # FastAPI backend (localhost:8000)
-├── .env             # Local secrets (GITIGNORED)
-└── README.md        # This file
-```
+- `MONGO_URI` — MongoDB connection string
+- `BACKEND_API_URL` — Public URL of backend (used by frontend and callbacks)
+- `GITHUB_TOKEN` — Optional: used to dispatch GitHub Actions for isolated scrapes
+- `GITHUB_REPOSITORY` — Optional: owner/repo used when dispatching workflows
+- `TANISHQ_CALLBACK_SECRET` — Optional secret for authenticated callbacks
+- `ENABLE_GITHUB_TANISHQ_DISPATCH` — `true`/`false` to allow workflow dispatching
 
-## 🌐 Deployment
+Only set tokens/secrets for CI or production; never commit them to the repo.
 
-### Frontend → Vercel
+## Key Code Locations
 
-```bash
-git push origin main
-# Vercel auto-deploys from GitHub
-```
+- Backend API: [api/main.py](api/main.py) — main FastAPI routes and live-rates logic
+- Tanishq fetcher: [api/tanishq_fetcher.py](api/tanishq_fetcher.py)
+- GH Actions worker: [.github/workflows/tanishq-live-rates.yaml](.github/workflows/tanishq-live-rates.yaml) and [api/github_actions_tanishq.py](api/github_actions_tanishq.py)
+- Frontend hook: `frontend/hooks/useLiveRates.js` — SWR-like stale-while-revalidate logic
+- Brand UI: `frontend/components/BrandModal.jsx` — includes performance scatter chart
 
-### Backend → Railway.app
+## How live rates flow works (short)
 
-```bash
-# 1. Railway.app account
-# 2. Connect GitHub repo
-# 3. Add MONGO_URI env var
-# 4. Deploy
-```
+- The backend keeps a single canonical document in MongoDB (`Cron_live_rates`, `_id: "latest"`).
+- Scheduled jobs or external triggers refresh brand rates and merge them into the cached doc while preserving failed brand entries.
+- Tanishq scraping is executed in an isolated workflow (GitHub Actions) and posts results back to a callback endpoint; this protects the backend from site blocking and long-running browser tasks.
+- The frontend requests `/api/live-rates` and displays cached values immediately while triggering background refreshes when data is stale.
 
-See [connection/README.md](connection/README.md) for detailed backend setup.
+## Docs and housekeeping
 
-## 📝 Environment Setup
+This repository previously contained multiple standalone Markdown docs. Most documentation is now consolidated into in-code README snippets and the `docs/` folder when needed. If you are looking for architecture diagrams or the live-rates flow, see `api/README.md` or open the `docs/` folder if present.
 
-### .env (local only, not in git)
-```
-MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority
-```
+## Deployment
 
-### .env.example (template, in git)
-```
-MONGO_URI=mongodb+srv://USERNAME:PASSWORD@cluster.mongodb.net/
-ALLOWED_ORIGINS=http://localhost:3000,https://pythonscrapper.vercel.app
-```
+- Frontend: deploy `frontend/` to Vercel or any static/SSR host that supports Next.js.
+- Backend: deploy `api/` to Railway, Render, or any container host. Ensure `MONGO_URI` and callback secrets are set in your deployment.
+- Optional: create a GitHub Actions workflow for scheduled dispatch or use your host's scheduler to call the backend cron endpoints.
 
-## 🔗 API Endpoints
+## Troubleshooting
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/categories` | GET | List jewellery categories |
-| `/api/calculate-price` | POST | Calculate gold price |
-| `/api/brand-summary` | POST | Brand analysis + scatter data |
-| `/api/live-rates` | GET | Cached live gold rates |
+- If rates appear stale: check the backend logs and ensure `APScheduler` or your cron runner is executing the refresh job.
+- If GitHub workflow dispatches fail: confirm `GITHUB_TOKEN` and `GITHUB_REPOSITORY` are present and the configured workflow `ref` matches your branch (commonly `master` or `main`).
 
-## 🛠️ Key Technologies
+## Contributing
 
-| Layer | Stack |
-|-------|-------|
-| Frontend | Next.js, React 18, TailwindCSS, Recharts |
-| Backend | FastAPI, Motor (async MongoDB), APScheduler |
-| Scraping | curl_cffi (Chrome impersonation), BeautifulSoup, Selectolax |
-| Deployment | Vercel (frontend), Railway (backend), MongoDB Atlas |
-
-## 📊 Cache Architecture
-
-```
-Startup → Fetch all rates → GOLD_CACHE
-                    ↓
-           Daily 12:00 PM (APScheduler)
-                    ↓
-         Merge with prior cache (preserve failures)
-                    ↓
-        Frontend: /api/live-rates → localStorage
-```
-
-## 🐛 Troubleshooting
-
-| Issue | Fix |
-|-------|-----|
-| MongoDB connection | Check `MONGO_URI` in `.env` |
-| Rates showing stale data | Check APScheduler is running |
-| CORS errors | Update `ALLOWED_ORIGINS` |
-
-## 📄 License
-
-MIT
+Open an issue or submit a pull request. Please keep secrets out of commits and include reproducible steps for scraping-related fixes.
 
 ---
+**Last Updated**: May 20, 2026
 
-**Status**: Production Ready  
-**Last Updated**: May 7, 2026
-```bash
-python jewelry_scraper.py
-```
-
-## What it does
-
-1. **Fetches HTML** asynchronously from 4 jewelry brand websites using `httpx`
-2. **Analyzes content** using Google Gemini SDK with structured JSON output
-3. **Validates data** using Pydantic models
-4. **Stores in MongoDB** with upsert functionality
-
-## Output Format
-
-Data stored in MongoDB follows this structure:
-```json
-{
-    "brand": "kalyan",
-    "categories": {
-        "Gold Rings": "₹300-500 per gram",
-        "Gold Chains": "₹200-400 per gram",
-        ...
-    },
-    "timestamp": "2024-02-10T12:00:00Z",
-    "source_url": "https://..."
-}
-```
-
-## Database
-
-- **Database:** `jewelry_db`
-- **Collection:** `making_charges`
-- Updates existing records or inserts new ones based on brand name
-
-## Features
-
-✅ Async/await patterns for concurrent fetching  
-✅ Structured output from Gemini API  
-✅ Pydantic validation  
-✅ MongoDB storage with upsert  
-✅ Error handling for each step  
-✅ Progress logging
