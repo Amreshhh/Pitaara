@@ -259,10 +259,16 @@ async def _fetch_latest_live_rates_payload():
         "rates": rates,
     }
 
-    try:
-        await _dispatch_tanishq_workflow(trigger_reason="batch-refresh")
-    except Exception as error:
-        print(f"⚠️ GitHub Actions Tanishq dispatch failed during batch refresh: {error}")
+    # Only attempt GitHub Actions dispatch from the scheduled batch when enabled.
+    # This prevents noisy 503 logs when the environment is not configured for dispatch.
+    enable_dispatch = os.getenv("ENABLE_GITHUB_TANISHQ_DISPATCH", "false").lower() in ("1", "true", "yes")
+    if enable_dispatch:
+        try:
+            await _dispatch_tanishq_workflow(trigger_reason="batch-refresh")
+        except Exception as error:
+            print(f"⚠️ GitHub Actions Tanishq dispatch failed during batch refresh: {error}")
+    else:
+        print("ℹ️ GitHub Actions dispatch skipped during batch refresh (ENABLE_GITHUB_TANISHQ_DISPATCH not enabled)")
 
     await _save_live_rates_payload_to_mongo(payload)
     return payload

@@ -124,12 +124,11 @@ export const useLiveRates = () => {
           const retryState = shouldTriggerRetry(missingBrands, data.last_updated);
           if (retryState) {
             console.log('[useLiveRates] Triggering backend scrape retry...');
-            const triggerRes = await fetch('/api/live-rates/trigger', {
-              method: 'POST',
+            const triggerRes = await fetch('/api/live-rates/fetch-tanishq', {
               cache: 'no-store',
             });
             const triggerResult = await triggerRes.json();
-            console.log('[useLiveRates] Trigger result:', triggerResult);
+            console.log('[useLiveRates] Tanishq fetch result:', triggerResult);
 
             if (typeof window !== 'undefined') {
               window.localStorage.setItem(
