@@ -13,6 +13,7 @@ dnspython==2.8.0
 curl_cffi==0.15.0
 beautifulsoup4==4.14.3
 selectolax==0.4.7
+playwright==1.49.1
 
 # Async & Scheduling
 apscheduler==3.10.4

@@ -6,6 +6,11 @@ from typing import Iterable, Optional
 from curl_cffi.requests import AsyncSession
 from selectolax.parser import HTMLParser
 
+try:
+    from playwright.async_api import async_playwright
+except ImportError:  # pragma: no cover - dependency may be missing in local environments
+    async_playwright = None
+
 
 def get_no_cache_headers():
     return {
@@ -66,61 +71,91 @@ async def fetch_tanishq(session: AsyncSession):
     print("📡 Fetching Tanishq...")
     url = f"https://www.tanishq.co.in/gold-rate.html?lang=en_IN&_ts={int(time.time())}"
 
-    headers = {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-        **get_no_cache_headers(),
-    }
+    if async_playwright is None:
+        raise RuntimeError("Playwright is not installed. Add playwright to requirements and install Chromium.")
+
+    candidate_selectors = [
+        "table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:nth-child(2)",
+        "table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:last-child",
+        "table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child",
+        "table.goldrate-table.goldrate-table-22kt tbody tr:first-child td:nth-child(2)",
+        "table.goldrate-table.goldrate-table-22kt tbody tr:first-child",
+        "table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child td:nth-child(2)",
+        "table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child",
+        '[class*="goldrate-table"] tbody tr:first-child td:nth-child(2)',
+    ]
 
     for attempt in range(3):
         try:
-            response = await session.get(url, headers=headers, timeout=25)
-            response.raise_for_status()
-
-            tree = HTMLParser(response.text)
             rate_22k: Optional[int] = None
 
-            candidate_selectors = [
-                "table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:nth-child(2)",
-                "table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:last-child",
-                "table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child",
-                "table.goldrate-table.goldrate-table-22kt tbody tr:first-child td:nth-child(2)",
-                "table.goldrate-table.goldrate-table-22kt tbody tr:first-child",
-                "table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child td:nth-child(2)",
-                "table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child",
-                '[class*="goldrate-table"] tbody tr:first-child td:nth-child(2)',
-            ]
-
-            for selector, node in _iter_candidate_nodes(tree, candidate_selectors):
-                texts = []
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                context = await browser.new_context(
+                    viewport={"width": 1440, "height": 1600},
+                    locale="en-US",
+                    user_agent=get_no_cache_headers()["User-Agent"],
+                )
+                page = await context.new_page()
                 try:
-                    texts.append(node.text(strip=True))
-                except Exception:
-                    pass
+                    response = await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                    status_code = response.status if response else None
+                    if status_code == 403:
+                        print(f"⛔ Tanishq blocked automated browser access with HTTP 403 on attempt {attempt + 1}")
+                        return None
 
-                try:
-                    for td in node.css("td"):
-                        texts.append(td.text(strip=True))
-                except Exception:
-                    pass
+                    await page.wait_for_timeout(4000)
 
-                for text in texts:
-                    extracted = _extract_numeric_price(text)
-                    if extracted:
-                        rate_22k = extracted
-                        break
+                    page_text = await page.locator("body").inner_text(timeout=10000)
+                    if page_text:
+                        for token in ("Access Denied", "Forbidden", "Robot", "captcha"):
+                            if token.lower() in page_text.lower():
+                                print(f"⛔ Tanishq browser page appears blocked: {token}")
+                                return None
 
-                if rate_22k:
-                    print(f"✅ Tanishq matched selector on attempt {attempt + 1}: {selector}")
-                    break
+                    for selector in candidate_selectors:
+                        locator = page.locator(selector)
+                        count = await locator.count()
+                        if count == 0:
+                            continue
+
+                        for index in range(min(count, 3)):
+                            item = locator.nth(index)
+                            texts = []
+                            try:
+                                texts.append(await item.inner_text())
+                            except Exception:
+                                pass
+
+                            try:
+                                texts.extend(await item.locator("td").all_inner_texts())
+                            except Exception:
+                                pass
+
+                            for text in texts:
+                                extracted = _extract_numeric_price(text)
+                                if extracted:
+                                    rate_22k = extracted
+                                    print(f"✅ Tanishq matched selector on attempt {attempt + 1}: {selector}")
+                                    break
+
+                            if rate_22k:
+                                break
+
+                        if rate_22k:
+                            break
+
+                    if not rate_22k:
+                        for pattern in (r"22\s*K[^\d]{0,20}(\d[\d,]+)", r"(\d[\d,]+)[^\d]{0,20}22\s*K"):
+                            match = re.search(pattern, page_text or "", flags=re.IGNORECASE | re.DOTALL)
+                            if match:
+                                extracted = _extract_numeric_price(match.group(1))
+                                if extracted:
+                                    rate_22k = extracted
+                                    print(f"✅ Tanishq matched body text pattern on attempt {attempt + 1}: {pattern}")
+                                    break
+                finally:
+                    await browser.close()
 
             if not rate_22k:
                 raise ValueError("No numeric rate found in candidate selectors")
@@ -139,6 +174,11 @@ async def fetch_tanishq(session: AsyncSession):
             }
 
         except Exception as e:
+            status_code = getattr(getattr(e, "response", None), "status_code", None)
+            if status_code == 403:
+                print(f"⛔ Tanishq blocked automated access with HTTP 403 on attempt {attempt + 1}")
+                return None
+
             print(f"⚠️ Tanishq attempt {attempt + 1} failed: {e}")
             if attempt < 2:
                 await asyncio.sleep((attempt + 1) * 2)
