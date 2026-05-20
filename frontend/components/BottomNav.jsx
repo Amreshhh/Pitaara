@@ -4,9 +4,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Activity, BarChart2, LayoutGrid } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { id: 'Rates', label: 'Rates', icon: BarChart2, target: '.hero-rates-panel' },
-  { id: 'Calculator', label: 'Calculator', icon: Activity, target: '#estimator' },
-  { id: 'Inventory', label: 'Inventory', icon: LayoutGrid, target: '.heatmap-section' },
+  { id: 'rates', label: 'Rates', icon: BarChart2, target: '.hero-rates-panel' },
+  { id: 'calculator', label: 'Calculator', icon: Activity, target: '#estimator' },
+  { id: 'inventory', label: 'Inventory', icon: LayoutGrid, target: '.heatmap-section' },
 ];
 
 export default function BottomNav() {
