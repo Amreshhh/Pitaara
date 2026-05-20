@@ -3,7 +3,29 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
+import { CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from 'recharts';
 import { getThemeStyles } from '@/lib/utils';
+
+const PerformanceSnapshotTooltip = ({ active, payload, isDarkMode }) => {
+  if (!active || !payload?.length) return null;
+
+  const point = payload[0]?.payload || {};
+
+  return (
+    <div
+      className={`rounded-xl border px-3 py-2 shadow-xl backdrop-blur-md ${
+        isDarkMode ? 'border-stone-700 bg-stone-950/95 text-stone-100' : 'border-stone-200 bg-white text-stone-800'
+      }`}
+    >
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] mb-1">Performance Point</p>
+      <p className="text-sm font-medium">Weight: {Number(point.weight || 0).toFixed(2)}g</p>
+      <p className="text-sm font-medium">Making charge: {Number(point.mc || 0).toFixed(2)}%</p>
+      {point.verification_link ? (
+        <p className="text-[11px] mt-1 break-all opacity-80">{point.verification_link}</p>
+      ) : null}
+    </div>
+  );
+};
 
 export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext }) => {
   const styles = getThemeStyles(isDarkMode);
@@ -131,6 +153,42 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
   const topDeals = summary?.top_5_deals || [];
   const distribution = summary?.frequency_distribution || [];
   const coinWeightSummary = summary?.coin_weight_summary || [];
+  const performanceChartData = useMemo(
+    () =>
+      scatterData.map((point, index) => ({
+        ...point,
+        index,
+        weight: Number(point?.weight) || 0,
+        mc: Number(point?.mc) || 0,
+      })),
+    [scatterData]
+  );
+
+  const performanceBounds = useMemo(() => {
+    if (!performanceChartData.length) {
+      return {
+        weight: [0, 1],
+        mc: [0, 1],
+      };
+    }
+
+    const weights = performanceChartData.map((point) => point.weight);
+    const mcs = performanceChartData.map((point) => point.mc);
+    const padRange = (values) => {
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      if (!Number.isFinite(min) || !Number.isFinite(max)) {
+        return [0, 1];
+      }
+      const padding = min === max ? 0.5 : Math.max((max - min) * 0.12, 0.5);
+      return [Math.max(0, min - padding), max + padding];
+    };
+
+    return {
+      weight: padRange(weights),
+      mc: padRange(mcs),
+    };
+  }, [performanceChartData]);
 
   // Compute a local, authoritative breakdown from API values to ensure UI consistency
   const computedBreakdown = useMemo(() => {
@@ -353,6 +411,54 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                           ? `${Math.min(...scatterData.map((point) => point.mc))}% - ${Math.max(...scatterData.map((point) => point.mc))}%`
                           : 'N/A'}
                       </p>
+                    </div>
+                  </div>
+
+                  <div className={`mt-4 rounded-2xl border p-3 sm:p-4 ${styles.borderColor}`}>
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <div>
+                        <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Scatter view</p>
+                        <p className="text-sm font-medium">Weight vs. making charge for the selected brand</p>
+                      </div>
+                      <div className={`text-[11px] sm:text-xs ${styles.textMuted}`}>
+                        {performanceChartData.length} points
+                      </div>
+                    </div>
+
+                    <div className="h-72 sm:h-80">
+                      {performanceChartData.length ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ScatterChart margin={{ top: 10, right: 16, bottom: 18, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? 'rgba(120, 113, 108, 0.25)' : 'rgba(120, 113, 108, 0.18)'} />
+                            <XAxis
+                              dataKey="weight"
+                              type="number"
+                              name="Weight"
+                              domain={performanceBounds.weight}
+                              tickFormatter={(value) => `${value}g`}
+                              tick={{ fontSize: 11 }}
+                              stroke={isDarkMode ? '#a8a29e' : '#78716c'}
+                              label={{ value: 'Weight (g)', position: 'insideBottom', offset: -8 }}
+                            />
+                            <YAxis
+                              dataKey="mc"
+                              type="number"
+                              name="Making charge"
+                              domain={performanceBounds.mc}
+                              tickFormatter={(value) => `${value}%`}
+                              tick={{ fontSize: 11 }}
+                              stroke={isDarkMode ? '#a8a29e' : '#78716c'}
+                              label={{ value: 'Making charge (%)', angle: -90, position: 'insideLeft' }}
+                            />
+                            <Tooltip content={(props) => <PerformanceSnapshotTooltip {...props} isDarkMode={isDarkMode} />} />
+                            <Scatter data={performanceChartData} fill={isDarkMode ? '#f59e0b' : '#d97706'} />
+                          </ScatterChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className={`flex h-full items-center justify-center rounded-xl border border-dashed ${styles.borderColor}`}>
+                          <p className={`text-sm ${styles.textMuted}`}>No scatter data available for this summary.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
