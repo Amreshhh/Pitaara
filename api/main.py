@@ -86,7 +86,7 @@ async def _dispatch_tanishq_workflow(trigger_reason: str, request: Request = Non
     github_token = os.getenv("GITHUB_TOKEN")
     github_repository = os.getenv("GITHUB_REPOSITORY")
     workflow_file = os.getenv("GITHUB_TANISHQ_WORKFLOW_FILE", "tanishq-live-rates.yaml")
-    workflow_ref = os.getenv("GITHUB_TANISHQ_WORKFLOW_REF", "main")
+    workflow_ref = os.getenv("GITHUB_TANISHQ_WORKFLOW_REF", "master")
     callback_secret = os.getenv("TANISHQ_CALLBACK_SECRET", "")
 
     if not github_token or not github_repository:
