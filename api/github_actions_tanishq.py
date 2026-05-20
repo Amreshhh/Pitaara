@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import uuid
+import traceback
 from pathlib import Path
 
 import requests
@@ -21,18 +22,26 @@ async def main():
     callback_secret = os.getenv("TANISHQ_CALLBACK_SECRET", "")
     trigger_reason = os.getenv("TANISHQ_TRIGGER_REASON", "github-actions")
 
-    async with AsyncSession(impersonate="chrome124") as session:
-        rate = await fetch_tanishq(session)
-
-    if not rate:
-        raise RuntimeError("Tanishq fetch returned no data")
-
     payload = {
         "request_id": request_id,
         "status": "success",
         "message": f"Tanishq fetched via GitHub Actions ({trigger_reason})",
-        "rate": rate,
     }
+
+    try:
+        async with AsyncSession(impersonate="chrome124") as session:
+            rate = await fetch_tanishq(session)
+
+        if not rate:
+            raise RuntimeError("Tanishq fetch returned no data")
+
+        payload["rate"] = rate
+    except Exception as error:
+        print(f"❌ Tanishq scrape failed: {error!r}")
+        traceback.print_exc()
+        payload["status"] = "failure"
+        payload["message"] = f"Tanishq fetch failed via GitHub Actions ({trigger_reason})"
+        payload["error"] = str(error)
 
     if callback_url:
         headers = {"Content-Type": "application/json"}

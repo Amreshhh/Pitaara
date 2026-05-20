@@ -50,6 +50,7 @@ class TanishqCallbackPayload(BaseModel):
     request_id: Optional[str] = None
     status: Optional[str] = None
     message: Optional[str] = None
+    error: Optional[str] = None
     rate: Optional[dict] = None
     payload: Optional[dict] = None
 
@@ -822,6 +823,29 @@ async def tanishq_callback(payload: TanishqCallbackPayload, authorization: str =
         )
 
     tanishq_result = payload.rate or payload.payload
+
+    if payload.status and payload.status.lower() != "success":
+        diagnostics = {
+            "request_id": payload.request_id,
+            "status": payload.status,
+            "message": payload.message,
+            "error": payload.error,
+            "last_updated": _get_ist_timestamp(),
+        }
+        await _save_live_rates_payload_to_mongo({
+            **(await _load_live_rates_payload_from_mongo() or {"status": "success", "cache_status": "live", "rates": []}),
+            "tanishq_request_id": payload.request_id,
+            "tanishq_message": payload.message,
+            "tanishq_error": payload.error,
+            "tanishq_status": payload.status,
+            "tanishq_last_attempt": _get_ist_timestamp(),
+        })
+        return {
+            "status": "recorded",
+            "message": "Tanishq failure diagnostics recorded",
+            "payload": diagnostics,
+        }
+
     if not isinstance(tanishq_result, dict):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
