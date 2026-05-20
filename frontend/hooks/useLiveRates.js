@@ -51,6 +51,41 @@ const mergeTanishqRate = (rates, tanishqRate) => {
   return nextRates;
 };
 
+const addStaleFallbackBrands = (rates, cachedByBrand = {}, requiredBrands = []) => {
+  const nextRates = [...rates];
+  const presentBrands = new Set(nextRates.map((rate) => rate?.Brand));
+
+  for (const brand of requiredBrands) {
+    if (presentBrands.has(brand)) continue;
+    if (!cachedByBrand[brand]) continue;
+    nextRates.push({ ...cachedByBrand[brand], _stale: true });
+    presentBrands.add(brand);
+  }
+
+  return nextRates;
+};
+
+const readCachedLiveRates = () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.localStorage.getItem('cached_gold_rates');
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    const rates = Array.isArray(parsed?.rates) ? parsed.rates : [];
+    if (!rates.length) return null;
+
+    return {
+      rates,
+      last_updated: parsed.last_updated || null,
+    };
+  } catch (error) {
+    console.warn('[useLiveRates] Failed to read cached rates:', error);
+    return null;
+  }
+};
+
 const shouldTriggerRetry = (missingBrands, lastUpdated) => {
   if (!Array.isArray(missingBrands) || missingBrands.length === 0) return false;
 
@@ -83,7 +118,9 @@ export const useLiveRates = () => {
   const [cacheStatus, setCacheStatus] = useState('loading');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isPreviousDay, setIsPreviousDay] = useState(false);
+  const [hasMissingBrands, setHasMissingBrands] = useState(false);
   const pollingIntervalRef = useRef(null);
+  const missingBrandsPollingRef = useRef(null);
 
   const fetchRates = async () => {
     try {
@@ -109,19 +146,27 @@ export const useLiveRates = () => {
       }
 
       // Normalize
-      let processedRates = normalizeLiveRates(data, cachedMap);
+      const baseRates = normalizeLiveRates(data, cachedMap);
 
-      // 🔥 Check for ALL missing brands (Tanishq, Kalyan, Malabar, Senco)
+      // Keep stale fallback values visible if the fresh payload is incomplete.
       const requiredBrands = ['Tanishq', 'Kalyan', 'Malabar', 'Senco'];
-      const presentBrands = new Set(processedRates.map((r) => r.Brand));
-      const missingBrands = requiredBrands.filter((b) => !presentBrands.has(b));
+      const livePresentBrands = new Set(baseRates.map((r) => r.Brand));
+      const displayRates = addStaleFallbackBrands(baseRates, cachedMap, requiredBrands);
+      const displayedTanishq = displayRates.find((rate) => rate?.Brand === 'Tanishq');
+      const tanishqIsStale = Boolean(displayedTanishq?._stale);
+      const backendMissingBrands = requiredBrands.filter((brand) => !livePresentBrands.has(brand));
 
-      if (missingBrands.length > 0) {
-        console.log(`[useLiveRates] Missing brands detected: ${missingBrands.join(', ')}`);
+      // Update missing brands state to control background polling
+      const currentlyHasMissing = backendMissingBrands.length > 0 || tanishqIsStale;
+      setHasMissingBrands(currentlyHasMissing);
+
+      if (currentlyHasMissing) {
+        const retryBrands = backendMissingBrands.length > 0 ? backendMissingBrands : ['Tanishq'];
+        console.log(`[useLiveRates] Missing/stale brands detected: ${retryBrands.join(', ')}`);
 
         // Trigger backend retry once per incomplete payload snapshot
         try {
-          const retryState = shouldTriggerRetry(missingBrands, data.last_updated);
+          const retryState = shouldTriggerRetry(retryBrands, data.last_updated);
           if (retryState) {
             console.log('[useLiveRates] Triggering backend scrape retry...');
             const triggerRes = await fetch('/api/live-rates/fetch-tanishq', {
@@ -155,7 +200,7 @@ export const useLiveRates = () => {
           window.localStorage.setItem(
             'cached_gold_rates',
             JSON.stringify({
-              rates: processedRates,
+              rates: displayRates,
               last_updated: data.last_updated || new Date().toISOString(),
             })
           );
@@ -164,7 +209,7 @@ export const useLiveRates = () => {
         }
       }
 
-      setLiveRates(processedRates);
+      setLiveRates(displayRates);
       setCacheStatus(data.cache_status || 'live');
       setLastUpdated(data.last_updated || new Date().toLocaleString());
       setIsPreviousDay(Boolean(data.is_previous_day));
@@ -191,10 +236,18 @@ export const useLiveRates = () => {
 
   // Initial fetch
   useEffect(() => {
+    const cachedSnapshot = readCachedLiveRates();
+    if (cachedSnapshot) {
+      setLiveRates(cachedSnapshot.rates);
+      setCacheStatus('stale-cache');
+      setLastUpdated(cachedSnapshot.last_updated);
+      setLoading(false);
+    }
+
     fetchRates();
   }, []);
 
-  // Set up polling when displaying previous day rates
+  // Set up polling for previous day rates
   useEffect(() => {
     // Clear any existing interval
     if (pollingIntervalRef.current) {
@@ -217,6 +270,32 @@ export const useLiveRates = () => {
       }
     };
   }, [isPreviousDay]);
+
+  // Set up polling for missing/stale brands (e.g., Tanishq being updated in background)
+  useEffect(() => {
+    // Clear any existing missing brands polling interval
+    if (missingBrandsPollingRef.current) {
+      clearInterval(missingBrandsPollingRef.current);
+      missingBrandsPollingRef.current = null;
+    }
+
+    // If we have missing/stale brands, poll every 5 seconds to check for updates
+    if (hasMissingBrands) {
+      console.log('[useLiveRates] Setting up 5s polling for missing/stale brands...');
+      missingBrandsPollingRef.current = setInterval(() => {
+        console.log('[useLiveRates] Polling for missing/stale brand updates...');
+        fetchRates();
+      }, 5000);
+    }
+
+    // Cleanup on unmount or when missing brands change
+    return () => {
+      if (missingBrandsPollingRef.current) {
+        clearInterval(missingBrandsPollingRef.current);
+        missingBrandsPollingRef.current = null;
+      }
+    };
+  }, [hasMissingBrands]);
 
   return {
     liveRates,

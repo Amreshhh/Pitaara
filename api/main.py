@@ -83,6 +83,26 @@ def _merge_brand_rate(payload: dict, brand_rate: dict, brand_name: str = "Tanish
     return merged_payload
 
 
+def _public_live_rates_payload(payload: dict):
+    if not payload:
+        return payload
+
+    public_payload = dict(payload)
+    for key in list(public_payload.keys()):
+        if key.startswith("tanishq_") or key.startswith("dispatch_"):
+            public_payload.pop(key, None)
+
+    public_payload.pop("workflow_queued", None)
+    public_payload.pop("workflow_file", None)
+    public_payload.pop("workflow_ref", None)
+    public_payload.pop("request_id", None)
+    public_payload.pop("callback_url", None)
+    public_payload.pop("trigger_reason", None)
+    public_payload.pop("dispatch_skipped", None)
+    public_payload.pop("dispatch_reason", None)
+    return public_payload
+
+
 async def _dispatch_tanishq_workflow(trigger_reason: str, request: Request = None, callback_url: str = None):
     github_token = os.getenv("GITHUB_TOKEN")
     github_repository = os.getenv("GITHUB_REPOSITORY")
@@ -761,11 +781,11 @@ async def get_live_rates():
             print("📅 Serving previous day rates as fallback")
             # Trigger background refresh for today's rates (non-blocking)
             asyncio.create_task(_fetch_and_update_rates_background())
-        return payload
+        return _public_live_rates_payload(payload)
     
     # No cached rates at all, fetch fresh
     print("🔄 No cached rates found, fetching fresh rates")
-    return await _fetch_latest_live_rates_payload()
+    return _public_live_rates_payload(await _fetch_latest_live_rates_payload())
 
 
 async def _fetch_and_update_rates_background():
@@ -799,7 +819,7 @@ async def update_rates_cron(authorization: str = Header(None)):
             )
 
     print("✅ Authorized cron execution starting...")
-    return await _fetch_latest_live_rates_payload()
+    return _public_live_rates_payload(await _fetch_latest_live_rates_payload())
 
 
 @app.get("/api/live-rates/fetch-tanishq")
@@ -809,7 +829,7 @@ async def fetch_tanishq_on_demand(request: Request):
     return {
         "status": "queued",
         "message": "Tanishq GitHub Actions workflow queued",
-        **queued,
+        "workflow_queued": bool(queued.get("workflow_queued")),
     }
 
 
@@ -905,8 +925,8 @@ async def check_live_rates(request: Request):
             return {
                 "status": "workflow-dispatched",
                 "refetched": False,
-                **result,
-                **queued,
+                **_public_live_rates_payload(result),
+                "workflow_queued": bool(queued.get("workflow_queued")),
             }
 
         print("🔄 Refreshing non-Tanishq brands locally and queuing Tanishq workflow...")
@@ -915,10 +935,10 @@ async def check_live_rates(request: Request):
         return {
             "status": "refetched",
             "refetched": True,
-            **refreshed_result,
+            **_public_live_rates_payload(refreshed_result),
         }
 
-    return result
+    return _public_live_rates_payload(result)
 
 
 def _resolve_brand_rate(live_rates, brand, purity):
