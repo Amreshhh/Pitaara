@@ -418,7 +418,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                     <div className="flex items-center justify-between gap-3 mb-3">
                       <div>
                         <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Scatter view</p>
-                        <p className="text-sm font-medium">Weight vs. making charge for the selected brand</p>
+                        <p className="text-sm font-medium">Weight vs. making charge </p>
                       </div>
                       <div className={`text-[11px] sm:text-xs ${styles.textMuted}`}>
                         {performanceChartData.length} points
