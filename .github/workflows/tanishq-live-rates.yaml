@@ -1,0 +1,49 @@
+name: Tanishq Live Rates
+
+on:
+  workflow_dispatch:
+    inputs:
+      callback_url:
+        description: "Backend callback URL"
+        required: true
+        type: string
+      callback_secret:
+        description: "Shared callback secret"
+        required: false
+        type: string
+      request_id:
+        description: "Correlation id for the fetch request"
+        required: false
+        type: string
+      trigger_reason:
+        description: "Why this workflow was triggered"
+        required: false
+        type: string
+
+jobs:
+  fetch-tanishq:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r api/requirements.txt
+
+      - name: Fetch and callback Tanishq rates
+        env:
+          TANISHQ_CALLBACK_URL: ${{ github.event.inputs.callback_url }}
+          TANISHQ_CALLBACK_SECRET: ${{ github.event.inputs.callback_secret }}
+          TANISHQ_REQUEST_ID: ${{ github.event.inputs.request_id }}
+          TANISHQ_TRIGGER_REASON: ${{ github.event.inputs.trigger_reason }}
+        run: python api/github_actions_tanishq.py

@@ -5,6 +5,11 @@ from typing import Dict, Optional, Iterable
 from curl_cffi.requests import AsyncSession
 from selectolax.parser import HTMLParser
 
+try:
+    from tanishq_fetcher import fetch_tanishq
+except ImportError:
+    from api.tanishq_fetcher import fetch_tanishq
+
 # Helper function to prevent servers from sending cached/stale data
 def get_no_cache_headers():
     return {
@@ -15,150 +20,7 @@ def get_no_cache_headers():
     }
 
 # ==========================================
-# 1. TANISHQ (DOM Parsing + Reverse Math)
-# ==========================================
-def _extract_numeric_price(text: str) -> Optional[int]:
-    if not text:
-        return None
-
-    match = re.search(r'₹?\s*([\d,]+(?:\.\d+)?)', text)
-    if not match:
-        return None
-
-    raw = match.group(1).replace(',', '')
-    try:
-        value = float(raw)
-    except Exception:
-        return None
-
-    if not value or value <= 0:
-        return None
-
-    return int(round(value))
-
-
-def _iter_candidate_nodes(tree: HTMLParser, selectors: Iterable[str]):
-    for selector in selectors:
-        try:
-            node = tree.css_first(selector)
-        except Exception:
-            node = None
-        if node:
-            yield selector, node
-
-
-def _normalize_tanishq_rate(rate: int) -> int:
-    """Normalize scraped Tanishq rates to per-10g values."""
-    if rate <= 0:
-        return rate
-
-    num_digits = len(str(int(rate)))
-
-    # Keep the existing intent, but make the normalization less brittle.
-    # Tanishq may expose 4-digit, 5-digit, or 6-digit values depending on the
-    # table format and whether the source is per-gram or per-10g.
-    if num_digits <= 3:
-        return rate * 100
-    if num_digits == 4:
-        return rate * 10
-    if num_digits >= 6:
-        return int(round(rate / 10))
-
-    return rate
-
-
-async def fetch_tanishq(session):
-    print("📡 Fetching Tanishq...")
-    url = f"https://www.tanishq.co.in/gold-rate.html?lang=en_IN&_ts={int(time.time())}"
-    
-    # More robust headers to better mimic a real browser
-    headers = {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-        **get_no_cache_headers() # Includes User-Agent
-    }
-
-    # Retry logic for network failures and bot detection
-    for attempt in range(3):
-        try:
-            response = await session.get(url, headers=headers, timeout=25) # Increased timeout
-            response.raise_for_status() # Raise an exception for bad status codes
-            
-            tree = HTMLParser(response.text)
-            rate_22k: Optional[int] = None
-
-            # Added a more generic selector as a fallback
-            candidate_selectors = [
-                'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:nth-child(2)',
-                'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:last-child',
-                'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child',
-                'table.goldrate-table.goldrate-table-22kt tbody tr:first-child td:nth-child(2)',
-                'table.goldrate-table.goldrate-table-22kt tbody tr:first-child',
-                'table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child td:nth-child(2)',
-                'table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child',
-                '[class*="goldrate-table"] tbody tr:first-child td:nth-child(2)', # Generic fallback
-            ]
-
-            for selector, node in _iter_candidate_nodes(tree, candidate_selectors):
-                texts = []
-                try:
-                    texts.append(node.text(strip=True))
-                except Exception:
-                    pass
-
-                try:
-                    for td in node.css('td'):
-                        texts.append(td.text(strip=True))
-                except Exception:
-                    pass
-
-                for text in texts:
-                    extracted = _extract_numeric_price(text)
-                    if extracted:
-                        rate_22k = extracted
-                        break
-
-                if rate_22k:
-                    print(f"✅ Tanishq matched selector on attempt {attempt + 1}: {selector}")
-                    break
-            
-            if not rate_22k:
-                # This will trigger a retry if the loop finishes without finding a rate
-                raise ValueError("No numeric rate found in candidate selectors")
-
-            rate_22k = _normalize_tanishq_rate(rate_22k)
-
-            # Calculate other purities based on the standardized 22k rate.
-            rate_24k = int(round(rate_22k * (24.0 / 22.0)))
-            rate_18k = int(round(rate_24k * (18.0 / 24.0)))
-            rate_14k = int(round(rate_24k * (14.0 / 24.0)))
-
-            return {
-                "Brand": "Tanishq", 
-                "24K": rate_24k, 
-                "22K": rate_22k, 
-                "18K": rate_18k, 
-                "14K": rate_14k
-            }
-
-        except Exception as e:
-            print(f"⚠️ Tanishq attempt {attempt + 1} failed: {e}")
-            if attempt < 2:
-                await asyncio.sleep((attempt + 1) * 2) # Wait 2, then 4 seconds
-    
-    print("❌ Tanishq failed after 3 attempts.")
-    return None
-    
-# ==========================================
-# 2. MALABAR (GraphQL API)
+# 1. MALABAR (GraphQL API)
 # ==========================================
 async def fetch_malabar(session):
     print("📡 Fetching Malabar...")
@@ -189,7 +51,7 @@ async def fetch_malabar(session):
         return None
 
 # ==========================================
-# 3. SENCO (API + WAF Bypass Logic)
+# 2. SENCO (API + WAF Bypass Logic)
 # ==========================================
 async def fetch_senco(session):
     print("📡 Fetching Senco...")
@@ -252,7 +114,7 @@ async def fetch_senco(session):
         return None
 
 # ==========================================
-# 4. CANDERE (DOM Parsing)
+# 3. CANDERE (DOM Parsing)
 # ==========================================
 async def fetch_candere(session):
     print("📡 Fetching Candere...")
@@ -316,7 +178,6 @@ async def main():
     # 🔥 Impersonate upgrade to chrome124 to match the Senco headers
     async with AsyncSession(impersonate="chrome124") as session:
         tasks = [
-            fetch_tanishq(session), 
             fetch_malabar(session), 
             fetch_senco(session), 
             fetch_candere(session)

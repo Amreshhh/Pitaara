@@ -51,6 +51,29 @@ const mergeTanishqRate = (rates, tanishqRate) => {
   return nextRates;
 };
 
+const shouldTriggerRetry = (missingBrands, lastUpdated) => {
+  if (!Array.isArray(missingBrands) || missingBrands.length === 0) return false;
+
+  const signature = `${lastUpdated || 'no-ts'}:${missingBrands.join(',')}`;
+  const storageKey = 'live_rates_retry_signature';
+  const now = Date.now();
+  const cooldownMs = 60 * 1000;
+
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (raw) {
+      const cached = JSON.parse(raw);
+      if (cached?.signature === signature && typeof cached?.lastTriggeredAt === 'number') {
+        return now - cached.lastTriggeredAt > cooldownMs ? { signature, storageKey, now } : false;
+      }
+    }
+  } catch (error) {
+    console.warn('[useLiveRates] Retry signature check failed:', error);
+  }
+
+  return { signature, storageKey, now };
+};
+
 // ---------------------------------------------------------
 // 2. The Hook
 // ---------------------------------------------------------
@@ -95,24 +118,32 @@ export const useLiveRates = () => {
 
       if (missingBrands.length > 0) {
         console.log(`[useLiveRates] Missing brands detected: ${missingBrands.join(', ')}`);
-        
-        // Trigger backend check (which auto-refetches if missing)
+
+        // Trigger backend retry once per incomplete payload snapshot
         try {
-          console.log('[useLiveRates] Calling /api/live-rates/check to trigger backend refresh...');
+          const retryState = shouldTriggerRetry(missingBrands, data.last_updated);
+          if (retryState) {
+            console.log('[useLiveRates] Triggering backend scrape retry...');
+            const triggerRes = await fetch('/api/live-rates/trigger', {
+              method: 'POST',
+              cache: 'no-store',
+            });
+            const triggerResult = await triggerRes.json();
+            console.log('[useLiveRates] Trigger result:', triggerResult);
+
+            if (typeof window !== 'undefined') {
+              window.localStorage.setItem(
+                retryState.storageKey,
+                JSON.stringify({ signature: retryState.signature, lastTriggeredAt: retryState.now })
+              );
+            }
+          }
+
+          console.log('[useLiveRates] Calling /api/live-rates/check for diagnostics...');
           const checkRes = await fetch('/api/live-rates/check');
           if (checkRes.ok) {
             const checkResult = await checkRes.json();
             console.log('[useLiveRates] Check result:', checkResult);
-            
-            // If backend refetched, fetch fresh rates again
-            if (checkResult.refetched) {
-              console.log('[useLiveRates] Backend refetched, fetching updated rates...');
-              const freshRes = await fetch('/api/live-rates');
-              if (freshRes.ok) {
-                const freshData = await freshRes.json();
-                processedRates = normalizeLiveRates(freshData, cachedMap);
-              }
-            }
           }
         } catch (e) {
           console.error('[useLiveRates] Check endpoint error:', e);

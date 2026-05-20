@@ -2,12 +2,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import dynamic from 'next/dynamic';
 import { X } from 'lucide-react';
 import { getThemeStyles } from '@/lib/utils';
-
-// Dynamic import to avoid SSR issues
-const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
 export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext }) => {
   const styles = getThemeStyles(isDarkMode);
@@ -139,25 +135,28 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
   // Compute a local, authoritative breakdown from API values to ensure UI consistency
   const computedBreakdown = useMemo(() => {
     const appliedRate = Number(selectedBrand?.breakdown?.appliedRate) || 0;
-    
-    // 🔥 USE CALCULATION_WEIGHT FROM API - the actual weight used in backend calculation
-    const calculationWeight = Number(selectedBrand?.breakdown?.calculationWeight) || getDisplayWeight();
-    const userInputWeight = getDisplayWeight();
+    const displayWeight = getDisplayWeight();
 
-    // 🔥 Use already-calculated values from API instead of recalculating
-    const goldValue = Number(selectedBrand?.breakdown?.goldValue) || 0;
-    const makingCharges = Number(selectedBrand?.breakdown?.makingCharges) || 0;
-    const subtotal = Number(selectedBrand?.breakdown?.subtotal) || 0;
-    const gst = Number(selectedBrand?.breakdown?.gst) || 0;
-    const total = Number(selectedBrand?.breakdown?.total) || 0;
+    const goldValue = Math.round((appliedRate * displayWeight) * 100) / 100;
 
-    // makingPercent as fraction (e.g. 0.15 for 15%)
-    const makingPercent = Number(selectedBrand?.breakdown?.makingPercent) || 0;
+    // makingPercent may be stored as fraction or percent in different places
+    let makingPercent = 0;
+    if (selectedBrand?.breakdown?.makingPercent !== undefined) {
+      makingPercent = Number(selectedBrand.breakdown.makingPercent) || 0; // fraction (e.g. 0.15)
+    } else if (selectedBrand?.breakdown?.making_charges_percentage !== undefined) {
+      makingPercent = (Number(selectedBrand.breakdown.making_charges_percentage) || 0) / 100;
+    } else if (selectedBrand?.lowest_making_charge_in_range?.lowest_making_charge) {
+      makingPercent = (Number(selectedBrand.lowest_making_charge_in_range.lowest_making_charge) || 0) / 100;
+    }
+
+    const makingCharges = Math.round((goldValue * makingPercent) * 100) / 100;
+    const subtotal = Math.round((goldValue + makingCharges) * 100) / 100;
+    const gst = Math.round((subtotal * 0.03) * 100) / 100;
+    const total = Math.round((subtotal + gst) * 100) / 100;
 
     return {
       appliedRate,
-      calculationWeight, // Actual weight used in backend calculation
-      userInputWeight,   // User's search input weight
+      displayWeight,
       goldValue,
       makingCharges,
       makingPercent,
@@ -243,29 +242,15 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                   </thead>
                   <tbody className={`divide-y ${styles.borderColor}`}>
                     <tr>
-                      <td className="py-3 sm:py-4 px-3 sm:px-4 font-medium">
-                        Gold Value
-                        {computedBreakdown.calculationWeight !== computedBreakdown.userInputWeight && (
-                          <div className="text-[10px] text-amber-500 font-normal mt-1">
-                            (Best match for {computedBreakdown.userInputWeight}g)
-                          </div>
-                        )}
-                      </td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 font-medium">Gold Value</td>
                       <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">₹{computedBreakdown.appliedRate.toLocaleString('en-IN')}/g</td>
-                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">
-                        {computedBreakdown.calculationWeight}g
-                        {computedBreakdown.calculationWeight !== computedBreakdown.userInputWeight && (
-                          <div className={`text-[10px] mt-1 ${styles.textMuted}`}>
-                            (Searched: {computedBreakdown.userInputWeight}g)
-                          </div>
-                        )}
-                      </td>
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">{computedBreakdown.displayWeight}g</td>
                       <td className="py-3 sm:py-4 px-3 sm:px-4 text-right font-semibold relative group/tooltip cursor-help whitespace-nowrap">
                         ₹{computedBreakdown.goldValue.toLocaleString('en-IN')}
                         <div
                           className={`absolute bottom-full right-0 mb-2 hidden group-hover/tooltip:block w-max p-2 rounded text-[10px] shadow-lg z-20 ${isDarkMode ? 'bg-stone-800 text-stone-200' : 'bg-stone-800 text-stone-100'}`}
                         >
-                          {computedBreakdown.calculationWeight}g × ₹{computedBreakdown.appliedRate.toLocaleString('en-IN')}
+                          {computedBreakdown.displayWeight}g × ₹{computedBreakdown.appliedRate.toLocaleString('en-IN')}
                         </div>
                       </td>
                     </tr>
@@ -284,7 +269,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
                       <td className="py-3 sm:py-4 px-3 sm:px-4 font-medium">Sub Total</td>
                       <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">-</td>
                       <td className="py-3 sm:py-4 px-3 sm:px-4 text-center text-xs sm:text-sm">
-                        <div className="font-medium">{computedBreakdown.calculationWeight}g</div>
+                        <div className="font-medium">{computedBreakdown.displayWeight}g</div>
                         <div className={`text-xs ${styles.textMuted}`}>Gross Wt.</div>
                       </td>
                       <td className="py-3 sm:py-4 px-3 sm:px-4 text-right font-semibold whitespace-nowrap">
@@ -339,164 +324,37 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <div className={`rounded-2xl border p-4 ${styles.borderColor}`}>
-                  <h4 className="text-base font-semibold mb-2">Performance Snapshot</h4>
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div className={`rounded-lg border px-3 py-2 ${styles.borderColor}`}>
-                      <p className={`text-[9px] uppercase tracking-[0.15em] ${styles.textMuted}`}>Data points</p>
-                      <p className="text-lg font-semibold mt-0.5">{scatterData.length || 0}</p>
+                  <h4 className="text-lg font-semibold mb-3">Performance Snapshot</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
+                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Data points</p>
+                      <p className="text-2xl font-semibold mt-1">{scatterData.length || 0}</p>
                     </div>
-                    <div className={`rounded-lg border px-3 py-2 ${styles.borderColor}`}>
-                      <p className={`text-[9px] uppercase tracking-[0.15em] ${styles.textMuted}`}>Avg MC</p>
-                      <p className="text-lg font-semibold mt-0.5">
+                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
+                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Avg MC</p>
+                      <p className="text-2xl font-semibold mt-1">
                         {scatterData.length
                           ? `${(scatterData.reduce((sum, point) => sum + Number(point.mc || 0), 0) / scatterData.length).toFixed(1)}%`
                           : 'N/A'}
                       </p>
                     </div>
-                    <div className={`rounded-lg border px-3 py-2 ${styles.borderColor}`}>
-                      <p className={`text-[9px] uppercase tracking-[0.15em] ${styles.textMuted}`}>Weight range</p>
-                      <p className="text-sm font-semibold mt-0.5">
+                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
+                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>Weight range</p>
+                      <p className="text-lg font-semibold mt-1">
                         {scatterData.length
                           ? `${Math.min(...scatterData.map((point) => point.weight))}g - ${Math.max(...scatterData.map((point) => point.weight))}g`
                           : 'N/A'}
                       </p>
                     </div>
-                    <div className={`rounded-lg border px-3 py-2 ${styles.borderColor}`}>
-                      <p className={`text-[9px] uppercase tracking-[0.15em] ${styles.textMuted}`}>MC range</p>
-                      <p className="text-sm font-semibold mt-0.5">
+                    <div className={`rounded-xl border px-4 py-3 ${styles.borderColor}`}>
+                      <p className={`text-[11px] uppercase tracking-[0.2em] ${styles.textMuted}`}>MC range</p>
+                      <p className="text-lg font-semibold mt-1">
                         {scatterData.length
                           ? `${Math.min(...scatterData.map((point) => point.mc))}% - ${Math.max(...scatterData.map((point) => point.mc))}%`
                           : 'N/A'}
                       </p>
                     </div>
                   </div>
-                  
-                  {/* 🔥 ApexCharts Scatter Visualization */}
-                  {scatterData.length > 0 && (() => {
-                    // Calculate dynamic ranges based on data distribution
-                    const weights = scatterData.map(d => d.weight);
-                    const mcValues = scatterData.map(d => d.mc);
-                    
-                    const minWeight = Math.min(...weights);
-                    const maxWeight = Math.max(...weights);
-                    const minMC = Math.min(...mcValues);
-                    const maxMC = Math.max(...mcValues);
-                    
-                    // Calculate range spans
-                    const weightSpan = maxWeight - minWeight;
-                    const mcSpan = maxMC - minMC;
-                    
-                    // Add smart padding: more padding for smaller ranges to spread out clusters
-                    const weightPadding = weightSpan < 2 ? weightSpan * 0.5 : weightSpan * 0.15;
-                    const mcPadding = mcSpan < 5 ? mcSpan * 0.8 : mcSpan * 0.2;
-                    
-                    // Calculate domains with padding to spread clustered points
-                    const weightMin = Math.max(0, minWeight - weightPadding);
-                    const weightMax = maxWeight + weightPadding;
-                    const mcMin = Math.max(0, minMC - mcPadding);
-                    const mcMax = maxMC + mcPadding;
-                    
-                    // Get brand color
-                    const brandColor = selectedBrand?.iconColor?.includes('rose') ? '#f43f5e' : 
-                          selectedBrand?.iconColor?.includes('amber') ? '#f59e0b' :
-                          selectedBrand?.iconColor?.includes('orange') ? '#f97316' :
-                          selectedBrand?.iconColor?.includes('yellow') ? '#eab308' : '#3b82f6';
-                    
-                    const chartOptions = {
-                      chart: {
-                        type: 'scatter',
-                        zoom: { enabled: false },
-                        toolbar: { show: false },
-                        background: 'transparent',
-                        selection: { enabled: false },
-                        animations: {
-                          enabled: true,
-                          speed: 800,
-                          animateGradually: { enabled: true, delay: 150 },
-                        },
-                        events: {
-                          beforeZoom: () => false,
-                          beforeResetZoom: () => false,
-                          zoomed: () => false,
-                        },
-                      },
-                      theme: { mode: isDarkMode ? 'dark' : 'light' },
-                      colors: [brandColor],
-                      xaxis: {
-                        title: { text: 'Weight (g)', style: { fontSize: '12px', fontWeight: 600 } },
-                        min: weightMin,
-                        max: weightMax,
-                        decimalsInFloat: 1,
-                        labels: { style: { fontSize: '11px' } },
-                        axisBorder: { show: true },
-                        axisTicks: { show: true },
-                      },
-                      yaxis: {
-                        title: { text: 'Making Charge %', style: { fontSize: '12px', fontWeight: 600 } },
-                        min: mcMin,
-                        max: mcMax,
-                        decimalsInFloat: 1,
-                        labels: { style: { fontSize: '11px' } },
-                        axisBorder: { show: true },
-                        axisTicks: { show: true },
-                      },
-                      grid: {
-                        borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                        strokeDashArray: 4,
-                        xaxis: { lines: { show: true } },
-                        yaxis: { lines: { show: true } },
-                      },
-                      markers: {
-                        size: 6,
-                        strokeWidth: 2,
-                        strokeOpacity: 0.8,
-                        strokeColors: [brandColor],
-                        fillOpacity: 0.65,
-                        hover: { size: 7, sizeOffset: 1 },
-                      },
-                      tooltip: {
-                        custom: ({ seriesIndex, dataPointIndex, w }) => {
-                          const data = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
-                          return `
-                            <div style="
-                              background: ${isDarkMode ? '#18181b' : '#ffffff'};
-                              border: 2px solid ${isDarkMode ? '#52525b' : '#d4d4d8'};
-                              border-radius: 10px;
-                              padding: 12px 16px;
-                              box-shadow: ${isDarkMode ? '0 10px 25px rgba(0, 0, 0, 0.5)' : '0 10px 25px rgba(0, 0, 0, 0.15)'};
-                            ">
-                              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                <span style="color: ${isDarkMode ? '#ffffff' : '#000000'}; font-weight: 600; font-size: 13px;">Weight:</span>
-                                <span style="color: ${brandColor}; font-weight: 800; font-size: 16px; font-family: ui-monospace, 'Courier New', monospace;">${data[0]}g</span>
-                              </div>
-                              <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="color: ${isDarkMode ? '#ffffff' : '#000000'}; font-weight: 600; font-size: 13px;">MC:</span>
-                                <span style="color: ${brandColor}; font-weight: 800; font-size: 16px; font-family: ui-monospace, 'Courier New', monospace;">${data[1]}%</span>
-                              </div>
-                            </div>
-                          `;
-                        },
-                      },
-                      legend: { show: false },
-                    };
-                    
-                    const series = [{
-                      name: 'Products',
-                      data: scatterData.map(point => [point.weight, point.mc]),
-                    }];
-                    
-                    return (
-                      <div className="mt-3">
-                        <p className={`text-xs uppercase tracking-[0.2em] mb-2 ${styles.textMuted}`}>Weight vs Making Charge</p>
-                        <Chart
-                          options={chartOptions}
-                          series={series}
-                          type="scatter"
-                          height={320}
-                        />
-                      </div>
-                    );
-                  })()}
                 </div>
 
                 <div className={`rounded-2xl border p-4 ${styles.borderColor}`}>

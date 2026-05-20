@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException,Header, status
+from fastapi import FastAPI, HTTPException, Header, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 from email.message import EmailMessage
 import traceback
 import json
+import uuid
+import requests
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
@@ -33,15 +35,119 @@ except ImportError:
 from curl_cffi.requests import AsyncSession
 
 try:
-    from live_rates import fetch_tanishq, fetch_malabar, fetch_senco, fetch_candere, print_beautiful_console
+    from live_rates import fetch_malabar, fetch_senco, fetch_candere, print_beautiful_console
 except ImportError:
-    from api.live_rates import fetch_tanishq, fetch_malabar, fetch_senco, fetch_candere, print_beautiful_console
+    from api.live_rates import fetch_malabar, fetch_senco, fetch_candere, print_beautiful_console
 
 # Load environment variables
 load_dotenv()
 
 # Mongo collection for storing live rates (persisted across serverless invocations)
 LIVE_RATES_COLLECTION = "Cron_live_rates"
+
+
+class TanishqCallbackPayload(BaseModel):
+    request_id: Optional[str] = None
+    status: Optional[str] = None
+    message: Optional[str] = None
+    rate: Optional[dict] = None
+    payload: Optional[dict] = None
+
+
+def _extract_brand_from_rates(payload: dict, brand: str):
+    rates = payload.get("rates", []) if payload else []
+    for rate in rates:
+        if isinstance(rate, dict) and str(rate.get("Brand", "")).strip().lower() == brand.lower():
+            return rate
+    return None
+
+
+def _merge_brand_rate(payload: dict, brand_rate: dict, brand_name: str = "Tanishq"):
+    if not brand_rate:
+        return payload
+
+    merged_payload = dict(payload or {})
+    rates = list(merged_payload.get("rates", []) or [])
+    rates = [rate for rate in rates if not (isinstance(rate, dict) and str(rate.get("Brand", "")).strip().lower() == brand_name.lower())]
+
+    brand_rate = dict(brand_rate)
+    brand_rate["Brand"] = brand_rate.get("Brand", brand_name)
+    brand_rate["last_updated"] = _get_ist_timestamp()
+    rates.append(brand_rate)
+
+    merged_payload["status"] = merged_payload.get("status", "success")
+    merged_payload["cache_status"] = "live"
+    merged_payload["last_updated"] = _get_ist_timestamp()
+    merged_payload["rates"] = rates
+    return merged_payload
+
+
+async def _dispatch_tanishq_workflow(trigger_reason: str, request: Request = None, callback_url: str = None):
+    github_token = os.getenv("GITHUB_TOKEN")
+    github_repository = os.getenv("GITHUB_REPOSITORY")
+    workflow_file = os.getenv("GITHUB_TANISHQ_WORKFLOW_FILE", "tanishq-live-rates.yaml")
+    workflow_ref = os.getenv("GITHUB_TANISHQ_WORKFLOW_REF", "main")
+    callback_secret = os.getenv("TANISHQ_CALLBACK_SECRET", "")
+
+    if not github_token or not github_repository:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="GitHub Actions dispatch is not configured",
+        )
+
+    if not callback_url:
+        if request is not None:
+            callback_url = str(request.url_for("tanishq_callback"))
+        else:
+            backend_base_url = os.getenv("BACKEND_API_URL") or os.getenv("PUBLIC_BACKEND_URL")
+            if backend_base_url:
+                callback_url = f"{backend_base_url.rstrip('/')}/api/live-rates/tanishq-callback"
+
+    if not callback_url:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Tanishq callback URL is not configured",
+        )
+
+    request_id = str(uuid.uuid4())
+    dispatch_url = f"https://api.github.com/repos/{github_repository}/actions/workflows/{workflow_file}/dispatches"
+    dispatch_body = {
+        "ref": workflow_ref,
+        "inputs": {
+            "callback_url": callback_url,
+            "callback_secret": callback_secret,
+            "request_id": request_id,
+            "trigger_reason": trigger_reason,
+        },
+    }
+
+    def _send_dispatch():
+        return requests.post(
+            dispatch_url,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {github_token}",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+            json=dispatch_body,
+            timeout=20,
+        )
+
+    response = await asyncio.to_thread(_send_dispatch)
+    if response.status_code not in (201, 204):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"GitHub workflow dispatch failed: {response.status_code} {response.text}",
+        )
+
+    return {
+        "workflow_queued": True,
+        "workflow_file": workflow_file,
+        "workflow_ref": workflow_ref,
+        "request_id": request_id,
+        "callback_url": callback_url,
+        "trigger_reason": trigger_reason,
+    }
 
 
 def _get_ist_timestamp():
@@ -125,7 +231,6 @@ async def _fetch_latest_live_rates_payload():
     """Fetch latest live rates directly from provider modules and store them."""
     async with AsyncSession(impersonate="chrome124") as session:
         tasks = [
-            fetch_tanishq(session),
             fetch_malabar(session),
             fetch_senco(session),
             fetch_candere(session),
@@ -140,6 +245,11 @@ async def _fetch_latest_live_rates_payload():
         if result:
             rates.append(result)
 
+    existing_payload = await _load_live_rates_payload_from_mongo()
+    preserved_tanishq = _extract_brand_from_rates(existing_payload or {}, "Tanishq")
+    if preserved_tanishq:
+        rates.append(preserved_tanishq)
+
     print_beautiful_console(rates)
 
     payload = {
@@ -148,6 +258,11 @@ async def _fetch_latest_live_rates_payload():
         "last_updated": _get_ist_timestamp(),
         "rates": rates,
     }
+
+    try:
+        await _dispatch_tanishq_workflow(trigger_reason="batch-refresh")
+    except Exception as error:
+        print(f"⚠️ GitHub Actions Tanishq dispatch failed during batch refresh: {error}")
 
     await _save_live_rates_payload_to_mongo(payload)
     return payload
@@ -675,88 +790,50 @@ async def update_rates_cron(authorization: str = Header(None)):
 
 
 @app.get("/api/live-rates/fetch-tanishq")
-async def fetch_tanishq_on_demand():
-    """
-    On-demand Tanishq rate fetcher.
-    Fetches Tanishq rates, updates MongoDB cache, and returns the result.
-    Used when Tanishq is missing from cached rates.
-    """
-    try:
-        async with AsyncSession(impersonate="chrome124") as session:
-            print("📡 On-demand Tanishq fetch initiated...")
-            
-            # Fetch Tanishq with 5-second timeout
-            tanishq_result = await asyncio.wait_for(
-                fetch_tanishq(session), 
-                timeout=5.0
-            )
-            
-            if not tanishq_result:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Failed to fetch Tanishq rates"
-                )
-            
-            # Load existing payload from MongoDB
-            payload = await _load_live_rates_payload_from_mongo()
-            
-            if payload:
-                # Remove old Tanishq entry if exists
-                rates = payload.get("rates", [])
-                rates = [r for r in rates if r.get("Brand") != "Tanishq"]
-                
-                # Add fresh Tanishq rate
-                tanishq_result["last_updated"] = _get_ist_timestamp()
-                rates.append(tanishq_result)
-                
-                payload["rates"] = rates
-                payload["last_updated"] = _get_ist_timestamp()
-                
-                # Save updated payload to MongoDB
-                await _save_live_rates_payload_to_mongo(payload)
-                print("✅ Tanishq rate updated in MongoDB cache")
-                
-                return {
-                    "status": "success",
-                    "message": "Tanishq rate fetched and cached",
-                    "rate": tanishq_result,
-                    "full_payload": payload
-                }
-            else:
-                # No existing payload, create new one with just Tanishq
-                new_payload = {
-                    "status": "success",
-                    "cache_status": "live",
-                    "last_updated": _get_ist_timestamp(),
-                    "rates": [tanishq_result]
-                }
-                await _save_live_rates_payload_to_mongo(new_payload)
-                
-                return {
-                    "status": "success",
-                    "message": "Tanishq rate fetched (first cache entry)",
-                    "rate": tanishq_result,
-                    "full_payload": new_payload
-                }
-                
-    except asyncio.TimeoutError:
-        print("⏱️ Tanishq on-demand fetch timed out after 5 seconds")
+async def fetch_tanishq_on_demand(request: Request):
+    """Trigger the Tanishq GitHub Actions workflow and return the dispatch status."""
+    queued = await _dispatch_tanishq_workflow(trigger_reason="manual-on-demand", request=request)
+    return {
+        "status": "queued",
+        "message": "Tanishq GitHub Actions workflow queued",
+        **queued,
+    }
+
+
+@app.post("/api/live-rates/tanishq-callback", name="tanishq_callback")
+async def tanishq_callback(payload: TanishqCallbackPayload, authorization: str = Header(None)):
+    callback_secret = os.getenv("TANISHQ_CALLBACK_SECRET", "")
+    if callback_secret and authorization != f"Bearer {callback_secret}":
         raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Tanishq fetch timed out after 5 seconds"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized Tanishq callback",
         )
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"⚠️ Tanishq on-demand fetch failed: {e}")
+
+    tanishq_result = payload.rate or payload.payload
+    if not isinstance(tanishq_result, dict):
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch Tanishq: {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Callback payload must include a rate object",
         )
+
+    existing_payload = await _load_live_rates_payload_from_mongo()
+    merged_payload = _merge_brand_rate(existing_payload or {"status": "success", "cache_status": "live", "rates": []}, tanishq_result)
+
+    if payload.request_id:
+        merged_payload["tanishq_request_id"] = payload.request_id
+    if payload.message:
+        merged_payload["tanishq_message"] = payload.message
+
+    await _save_live_rates_payload_to_mongo(merged_payload)
+    return {
+        "status": "success",
+        "message": "Tanishq rate merged into MongoDB cache",
+        "payload": merged_payload,
+    }
 
 
 @app.get("/api/live-rates/check")
-async def check_live_rates():
+async def check_live_rates(request: Request):
     """Check the stored live_rates in Mongo for completeness and freshness.
 
     Returns:
@@ -784,47 +861,19 @@ async def check_live_rates():
             "⚠️ Stored live rates have missing/incomplete brands; attempting immediate refetch: "
             f"missing={result['missing_brands']}, incomplete={result['incomplete_brands']}"
         )
-        
-        # 🔥 If Tanishq is specifically missing, use dedicated fetcher with 5s timeout
+
         missing_brands = result.get("missing_brands", [])
-        if "Tanishq" in missing_brands:
-            print("🎯 Tanishq is missing - attempting on-demand fetch with 5s timeout...")
-            try:
-                async with AsyncSession(impersonate="chrome124") as session:
-                    tanishq_result = await asyncio.wait_for(
-                        fetch_tanishq(session), 
-                        timeout=5.0
-                    )
-                    
-                    if tanishq_result:
-                        # Update payload with fresh Tanishq
-                        rates = payload.get("rates", [])
-                        rates = [r for r in rates if r.get("Brand") != "Tanishq"]
-                        tanishq_result["last_updated"] = _get_ist_timestamp()
-                        rates.append(tanishq_result)
-                        
-                        payload["rates"] = rates
-                        payload["last_updated"] = _get_ist_timestamp()
-                        payload["cache_status"] = "live"
-                        
-                        await _save_live_rates_payload_to_mongo(payload)
-                        print("✅ Tanishq updated via dedicated fetcher")
-                        
-                        # Re-evaluate after Tanishq update
-                        result = _evaluate_live_rates_payload(payload)
-                        if not result["needs_fetch"]:
-                            return {
-                                "status": "partial-refetch",
-                                "refetched": True,
-                                **result,
-                            }
-            except asyncio.TimeoutError:
-                print("⏱️ Tanishq on-demand fetch timed out after 5 seconds")
-            except Exception as e:
-                print(f"⚠️ Tanishq on-demand fetch failed: {e}")
-        
-        # If still missing brands (or Tanishq fetch failed), do full refresh
-        print("🔄 Full refresh: Fetching all 4 brands...")
+        if set(missing_brands) == {"Tanishq"} and not result.get("incomplete_brands"):
+            print("🎯 Tanishq is missing - queuing GitHub Actions refresh...")
+            queued = await _dispatch_tanishq_workflow(trigger_reason="missing-brand", request=request)
+            return {
+                "status": "workflow-dispatched",
+                "refetched": False,
+                **result,
+                **queued,
+            }
+
+        print("🔄 Refreshing non-Tanishq brands locally and queuing Tanishq workflow...")
         refreshed = await _fetch_latest_live_rates_payload()
         refreshed_result = _evaluate_live_rates_payload(refreshed)
         return {

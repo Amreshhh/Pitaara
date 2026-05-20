@@ -7,9 +7,9 @@ from curl_cffi.requests import AsyncSession
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 try:
-    from live_rates import fetch_tanishq, fetch_malabar, fetch_senco, fetch_candere, print_beautiful_console
+    from live_rates import fetch_malabar, fetch_senco, fetch_candere, print_beautiful_console
 except ImportError:
-    from api.live_rates import fetch_tanishq, fetch_malabar, fetch_senco, fetch_candere, print_beautiful_console
+    from api.live_rates import fetch_malabar, fetch_senco, fetch_candere, print_beautiful_console
 
 # ==========================================
 # GLOBAL CACHE (Stored in RAM for entire day)
@@ -36,7 +36,6 @@ async def fetch_and_cache_rates():
     try:
             async with AsyncSession(impersonate="chrome124") as session:
                 tasks = [
-                    fetch_tanishq(session), 
                     fetch_malabar(session), 
                     fetch_senco(session), 
                     fetch_candere(session)
@@ -64,6 +63,10 @@ async def fetch_and_cache_rates():
                 prior_rates = { (r.get("Brand") if r else None): r for r in GOLD_CACHE.get("rates", []) }
                 new_rates = []
                 for b in brands_order:
+                    if b == "Tanishq" and prior_rates.get(b):
+                        print(f"ℹ️ Using cached rate for {b} (GitHub Actions refresh handles this brand)")
+                        new_rates.append(prior_rates.get(b))
+                        continue
                     if b in fetched_map:
                         new_rates.append(fetched_map[b])
                     else:
