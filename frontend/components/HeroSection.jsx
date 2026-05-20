@@ -212,7 +212,7 @@
       }).format(yesterday);
 
       if (rateDateKey === yesterdayKey) {
-        return "Tanishq rates are yesterday's";
+        return "yesterday's";
       }
 
       return rateData._stale ? "Tanishq rates are stale" : null;
