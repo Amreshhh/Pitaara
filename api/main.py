@@ -90,10 +90,12 @@ async def _dispatch_tanishq_workflow(trigger_reason: str, request: Request = Non
     callback_secret = os.getenv("TANISHQ_CALLBACK_SECRET", "")
 
     if not github_token or not github_repository:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GitHub Actions dispatch is not configured",
-        )
+        return {
+            "workflow_queued": False,
+            "dispatch_skipped": True,
+            "dispatch_reason": "GitHub Actions dispatch is not configured",
+            "trigger_reason": trigger_reason,
+        }
 
     if not callback_url:
         if request is not None:
@@ -104,10 +106,12 @@ async def _dispatch_tanishq_workflow(trigger_reason: str, request: Request = Non
                 callback_url = f"{backend_base_url.rstrip('/')}/api/live-rates/tanishq-callback"
 
     if not callback_url:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Tanishq callback URL is not configured",
-        )
+        return {
+            "workflow_queued": False,
+            "dispatch_skipped": True,
+            "dispatch_reason": "Tanishq callback URL is not configured",
+            "trigger_reason": trigger_reason,
+        }
 
     request_id = str(uuid.uuid4())
     dispatch_url = f"https://api.github.com/repos/{github_repository}/actions/workflows/{workflow_file}/dispatches"
@@ -135,10 +139,12 @@ async def _dispatch_tanishq_workflow(trigger_reason: str, request: Request = Non
 
     response = await asyncio.to_thread(_send_dispatch)
     if response.status_code not in (201, 204):
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"GitHub workflow dispatch failed: {response.status_code} {response.text}",
-        )
+        return {
+            "workflow_queued": False,
+            "dispatch_skipped": True,
+            "dispatch_reason": f"GitHub workflow dispatch failed: {response.status_code} {response.text}",
+            "trigger_reason": trigger_reason,
+        }
 
     return {
         "workflow_queued": True,
