@@ -69,69 +69,93 @@ def _normalize_tanishq_rate(rate: int) -> int:
 
 async def fetch_tanishq(session):
     print("📡 Fetching Tanishq...")
-    url = f"https://www.tanishq.co.in/gold-rate.html?lang=en_IN"
+    url = f"https://www.tanishq.co.in/gold-rate.html?lang=en_IN&_ts={int(time.time())}"
+    
+    # More robust headers to better mimic a real browser
+    headers = {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+        **get_no_cache_headers() # Includes User-Agent
+    }
 
-    try:
-        response = await session.get(url, headers=get_no_cache_headers(), timeout=15)
-        tree = HTMLParser(response.text)
+    # Retry logic for network failures and bot detection
+    for attempt in range(3):
+        try:
+            response = await session.get(url, headers=headers, timeout=25) # Increased timeout
+            response.raise_for_status() # Raise an exception for bad status codes
+            
+            tree = HTMLParser(response.text)
+            rate_22k: Optional[int] = None
 
-        rate_22k: Optional[int] = None
+            # Added a more generic selector as a fallback
+            candidate_selectors = [
+                'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:nth-child(2)',
+                'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:last-child',
+                'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child',
+                'table.goldrate-table.goldrate-table-22kt tbody tr:first-child td:nth-child(2)',
+                'table.goldrate-table.goldrate-table-22kt tbody tr:first-child',
+                'table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child td:nth-child(2)',
+                'table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child',
+                '[class*="goldrate-table"] tbody tr:first-child td:nth-child(2)', # Generic fallback
+            ]
 
-        candidate_selectors = [
-            'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:nth-child(2)',
-            'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:last-child',
-            'table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child',
-            'table.goldrate-table.goldrate-table-22kt tbody tr:first-child td:nth-child(2)',
-            'table.goldrate-table.goldrate-table-22kt tbody tr:first-child',
-            'table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child td:nth-child(2)',
-            'table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child',
-        ]
+            for selector, node in _iter_candidate_nodes(tree, candidate_selectors):
+                texts = []
+                try:
+                    texts.append(node.text(strip=True))
+                except Exception:
+                    pass
 
-        for selector, node in _iter_candidate_nodes(tree, candidate_selectors):
-            texts = []
-            try:
-                texts.append(node.text(strip=True))
-            except Exception:
-                pass
+                try:
+                    for td in node.css('td'):
+                        texts.append(td.text(strip=True))
+                except Exception:
+                    pass
 
-            try:
-                for td in node.css('td'):
-                    texts.append(td.text(strip=True))
-            except Exception:
-                pass
+                for text in texts:
+                    extracted = _extract_numeric_price(text)
+                    if extracted:
+                        rate_22k = extracted
+                        break
 
-            for text in texts:
-                extracted = _extract_numeric_price(text)
-                if extracted:
-                    rate_22k = extracted
+                if rate_22k:
+                    print(f"✅ Tanishq matched selector on attempt {attempt + 1}: {selector}")
                     break
+            
+            if not rate_22k:
+                # This will trigger a retry if the loop finishes without finding a rate
+                raise ValueError("No numeric rate found in candidate selectors")
 
-            if rate_22k:
-                print(f"✅ Tanishq matched selector: {selector}")
-                break
+            rate_22k = _normalize_tanishq_rate(rate_22k)
 
-        if not rate_22k:
-            print("⚠️ Tanishq live DOM failed: no numeric rate found in candidate selectors.")
-            return None
+            # Calculate other purities based on the standardized 22k rate.
+            rate_24k = int(round(rate_22k * (24.0 / 22.0)))
+            rate_18k = int(round(rate_24k * (18.0 / 24.0)))
+            rate_14k = int(round(rate_24k * (14.0 / 24.0)))
 
-        rate_22k = _normalize_tanishq_rate(rate_22k)
+            return {
+                "Brand": "Tanishq", 
+                "24K": rate_24k, 
+                "22K": rate_22k, 
+                "18K": rate_18k, 
+                "14K": rate_14k
+            }
 
-        # Calculate other purities based on the standardized 22k rate.
-        rate_24k = int(round(rate_22k * (24.0 / 22.0)))
-        rate_18k = int(round(rate_24k * (18.0 / 24.0)))
-        rate_14k = int(round(rate_24k * (14.0 / 24.0)))
-
-        return {
-            "Brand": "Tanishq", 
-            "24K": rate_24k, 
-            "22K": rate_22k, 
-            "18K": rate_18k, 
-            "14K": rate_14k
-        }
-
-    except Exception as e:
-        print(f"⚠️ Tanishq Error: {e}")
-        return None
+        except Exception as e:
+            print(f"⚠️ Tanishq attempt {attempt + 1} failed: {e}")
+            if attempt < 2:
+                await asyncio.sleep((attempt + 1) * 2) # Wait 2, then 4 seconds
+    
+    print("❌ Tanishq failed after 3 attempts.")
+    return None
     
 # ==========================================
 # 2. MALABAR (GraphQL API)
