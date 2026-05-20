@@ -1,15 +1,10 @@
 import asyncio
 import re
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional
 
 from curl_cffi.requests import AsyncSession
-from selectolax.parser import HTMLParser
-
-try:
-    from playwright.async_api import async_playwright
-except ImportError:  # pragma: no cover - dependency may be missing in local environments
-    async_playwright = None
 
 
 def get_no_cache_headers():
@@ -41,14 +36,16 @@ def _extract_numeric_price(text: str) -> Optional[int]:
     return int(round(value))
 
 
-def _iter_candidate_nodes(tree: HTMLParser, selectors: Iterable[str]):
-    for selector in selectors:
-        try:
-            node = tree.css_first(selector)
-        except Exception:
-            node = None
-        if node:
-            yield selector, node
+def _get_ist_date_str() -> str:
+    try:
+        from zoneinfo import ZoneInfo
+
+        now = datetime.now(ZoneInfo("Asia/Kolkata"))
+    except Exception:
+        ist = timezone(timedelta(hours=5, minutes=30), "IST")
+        now = datetime.now(ist)
+
+    return now.strftime("%d-%m-%Y")
 
 
 def _normalize_tanishq_rate(rate: int) -> int:
@@ -69,93 +66,57 @@ def _normalize_tanishq_rate(rate: int) -> int:
 
 async def fetch_tanishq(session: AsyncSession):
     print("📡 Fetching Tanishq...")
-    url = f"https://www.tanishq.co.in/gold-rate.html?lang=en_IN&_ts={int(time.time())}"
-
-    if async_playwright is None:
-        raise RuntimeError("Playwright is not installed. Add playwright to requirements and install Chromium.")
-
-    candidate_selectors = [
-        "table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:nth-child(2)",
-        "table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child td:last-child",
-        "table.goldrate-table.fixedhgt.goldrate-table-22kt tbody tr:first-child",
-        "table.goldrate-table.goldrate-table-22kt tbody tr:first-child td:nth-child(2)",
-        "table.goldrate-table.goldrate-table-22kt tbody tr:first-child",
-        "table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child td:nth-child(2)",
-        "table.goldrate-table.fixedhgt.goldrate-table-24kt tbody tr:first-child",
-        '[class*="goldrate-table"] tbody tr:first-child td:nth-child(2)',
-    ]
+    jina_url = f"https://r.jina.ai/https://www.tanishq.co.in/gold-rate.html?lang=en_IN&_ts={int(time.time())}"
+    today = _get_ist_date_str()
 
     for attempt in range(3):
         try:
+            response = await session.get(
+                jina_url,
+                headers={
+                    **get_no_cache_headers(),
+                    "Accept": "text/plain, text/markdown;q=0.9, */*;q=0.8",
+                },
+                timeout=35,
+            )
+            response.raise_for_status()
+
+            page_text = response.text or ""
             rate_22k: Optional[int] = None
 
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
-                context = await browser.new_context(
-                    viewport={"width": 1440, "height": 1600},
-                    locale="en-US",
-                    user_agent=get_no_cache_headers()["User-Agent"],
+            date_patterns = [
+                rf"\|\s*{re.escape(today)}\s*\|\s*₹\s*([\d,]+(?:\.\d+)?)\s*\|",
+                rf"{re.escape(today)}\s*\|\s*₹\s*([\d,]+(?:\.\d+)?)",
+                rf"{re.escape(today)}.*?₹\s*([\d,]+(?:\.\d+)?)",
+            ]
+
+            for pattern in date_patterns:
+                match = re.search(pattern, page_text, flags=re.IGNORECASE | re.DOTALL)
+                if match:
+                    extracted = _extract_numeric_price(match.group(1))
+                    if extracted:
+                        rate_22k = extracted
+                        print(f"✅ Tanishq matched today's date row via Jina on attempt {attempt + 1}: {today}")
+                        break
+
+            if not rate_22k:
+                history_block_match = re.search(
+                    r"# Gold Rate History.*?(?:\n\|.*?\n)+",
+                    page_text,
+                    flags=re.IGNORECASE | re.DOTALL,
                 )
-                page = await context.new_page()
-                try:
-                    response = await page.goto(url, wait_until="domcontentloaded", timeout=45000)
-                    status_code = response.status if response else None
-                    if status_code == 403:
-                        print(f"⛔ Tanishq blocked automated browser access with HTTP 403 on attempt {attempt + 1}")
-                        return None
+                history_text = history_block_match.group(0) if history_block_match else page_text
 
-                    await page.wait_for_timeout(4000)
-
-                    page_text = await page.locator("body").inner_text(timeout=10000)
-                    if page_text:
-                        for token in ("Access Denied", "Forbidden", "Robot", "captcha"):
-                            if token.lower() in page_text.lower():
-                                print(f"⛔ Tanishq browser page appears blocked: {token}")
-                                return None
-
-                    for selector in candidate_selectors:
-                        locator = page.locator(selector)
-                        count = await locator.count()
-                        if count == 0:
-                            continue
-
-                        for index in range(min(count, 3)):
-                            item = locator.nth(index)
-                            texts = []
-                            try:
-                                texts.append(await item.inner_text())
-                            except Exception:
-                                pass
-
-                            try:
-                                texts.extend(await item.locator("td").all_inner_texts())
-                            except Exception:
-                                pass
-
-                            for text in texts:
-                                extracted = _extract_numeric_price(text)
-                                if extracted:
-                                    rate_22k = extracted
-                                    print(f"✅ Tanishq matched selector on attempt {attempt + 1}: {selector}")
-                                    break
-
-                            if rate_22k:
-                                break
-
-                        if rate_22k:
-                            break
-
-                    if not rate_22k:
-                        for pattern in (r"22\s*K[^\d]{0,20}(\d[\d,]+)", r"(\d[\d,]+)[^\d]{0,20}22\s*K"):
-                            match = re.search(pattern, page_text or "", flags=re.IGNORECASE | re.DOTALL)
-                            if match:
-                                extracted = _extract_numeric_price(match.group(1))
-                                if extracted:
-                                    rate_22k = extracted
-                                    print(f"✅ Tanishq matched body text pattern on attempt {attempt + 1}: {pattern}")
-                                    break
-                finally:
-                    await browser.close()
+                row_match = re.search(
+                    rf"\|\s*{re.escape(today)}\s*\|\s*₹\s*([\d,]+(?:\.\d+)?)\s*\|",
+                    history_text,
+                    flags=re.IGNORECASE,
+                )
+                if row_match:
+                    extracted = _extract_numeric_price(row_match.group(1))
+                    if extracted:
+                        rate_22k = extracted
+                        print(f"✅ Tanishq matched today's date row in history block on attempt {attempt + 1}: {today}")
 
             if not rate_22k:
                 raise ValueError("No numeric rate found in candidate selectors")
