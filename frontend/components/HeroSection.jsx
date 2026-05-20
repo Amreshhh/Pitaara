@@ -167,6 +167,73 @@
   }) => {
     const styles = getThemeStyles(isDarkMode);
 
+    const getISTDateKey = (value) => {
+      if (!value) return null;
+
+      try {
+        const parsed = new Date(value.replace(' ', 'T') + '+05:30');
+        if (Number.isNaN(parsed.getTime())) return null;
+
+        return new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(parsed);
+      } catch {
+        return null;
+      }
+    };
+
+    const getTanishqLabel = (rateData) => {
+      if (!rateData || rateData.Brand !== 'Tanishq') return null;
+
+      const rateDateKey = getISTDateKey(rateData.last_updated);
+      if (!rateDateKey) return rateData._stale ? "Tanishq rates are stale" : null;
+
+      const todayKey = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+
+      if (rateDateKey === todayKey) {
+        return null;
+      }
+
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayKey = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(yesterday);
+
+      if (rateDateKey === yesterdayKey) {
+        return "Tanishq rates are yesterday's";
+      }
+
+      return rateData._stale ? "Tanishq rates are stale" : null;
+    };
+
+    const renderTanishqBadge = (rateData, isCompact = false) => {
+      const label = getTanishqLabel(rateData);
+      if (!label) return null;
+
+      return (
+        <span
+          title={label}
+          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+            isDarkMode ? 'border-orange-500/30 bg-orange-500/10 text-orange-300' : 'border-amber-300 bg-amber-50 text-amber-700'
+          } ${isCompact ? 'ml-2' : 'mt-2'}`}
+        >
+          {label}
+        </span>
+      );
+    };
+
     return (
       <section className="hero-section relative min-h-[10vh] flex flex-col items-center justify-center overflow-hidden px-4 text-center">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -261,15 +328,11 @@
                   <div key={idx} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-stone-900/60 border-stone-800' : 'bg-white border-stone-100'}`}>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-bold text-lg">
-                      {rateData._stale && rateData.Brand === 'Tanishq' ? (
-                        <span title="Today rate updating soon" className="inline-flex items-center gap-2">
-                          {rateData.Brand}
-                          <span className={`text-[11px] ${isDarkMode ? 'text-orange-400' : 'text-amber-400'}`}>(updating)</span>
+                        <span className="inline-flex items-center gap-2">
+                          {rateData.Brand || 'Unknown'}
+                          {renderTanishqBadge(rateData, true)}
                         </span>
-                      ) : (
-                        rateData.Brand
-                      )}
-                    </h3>
+                      </h3>
                       <span className={`text-[11px] uppercase tracking-[0.14em] ${styles.textMuted}`}>Per 1g</span>
                     </div>
 
@@ -319,14 +382,12 @@
                     liveRates.map((rateData, index) => (
                       <tr key={index} className={`transition-colors hover:${isDarkMode ? 'bg-stone-800/40' : 'bg-white/80'}`}>
                         <td className="px-4 py-4 md:px-8 md:py-6 font-serif text-lg md:text-xl font-medium">
-                          {rateData._stale && rateData.Brand === 'Tanishq' ? (
-                            <span title="Today rate updating soon" className="inline-flex items-center gap-2">
-                              {rateData.Brand}
-                              <span className={`text-[12px] ${isDarkMode ? 'text-orange-400' : 'text-amber-400'}`}>(updating)</span>
-                            </span>
-                          ) : (
-                            rateData.Brand || 'Unknown'
-                          )}
+                              <span className="inline-flex flex-col items-start">
+                                <span className="inline-flex items-center gap-2">
+                                  {rateData.Brand || 'Unknown'}
+                                </span>
+                                {renderTanishqBadge(rateData)}
+                              </span>
                         </td>
                         <td className={`px-4 py-4 md:px-8 md:py-6 text-right text-lg md:text-xl font-bold ${isDarkMode ? 'text-orange-400' : 'text-amber-700'}`}>
                           ₹{rateData['24K']?.toLocaleString('en-IN') || 'N/A'}
