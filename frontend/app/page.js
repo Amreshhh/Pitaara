@@ -142,6 +142,17 @@ export default function App() {
 
   const toggleTheme = () => setIsDarkMode((prev) => !prev);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    document.documentElement.classList.toggle('dark', isDarkMode);
+    document.body.dataset.theme = isDarkMode ? 'dark' : 'light';
+
+    return () => {
+      document.body.dataset.theme = '';
+    };
+  }, [isDarkMode]);
+
   const scrollToEstimator = () => {
     estimatorRef.current?.scrollIntoView({ behavior: 'smooth' });
   };

@@ -42,7 +42,9 @@ export default function BottomNav() {
     if (typeof window === 'undefined') return undefined;
 
     const updateTheme = () => {
-      setIsDarkMode(document.documentElement.classList.contains('dark'));
+      const rootHasDarkClass = document.documentElement.classList.contains('dark');
+      const bodyTheme = document.body?.dataset?.theme;
+      setIsDarkMode(rootHasDarkClass || bodyTheme === 'dark');
     };
 
     const resolveTarget = (selector) => document.querySelector(selector);
@@ -137,7 +139,7 @@ export default function BottomNav() {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['class', 'style'],
+      attributeFilter: ['class', 'style', 'data-theme'],
     });
 
     return () => {
@@ -156,8 +158,8 @@ export default function BottomNav() {
     `group flex flex-col items-center justify-center gap-1 min-w-0 rounded-2xl px-3 py-2 transition-all duration-200 ease-out transform-gpu ${
       isActive
         ? isDarkMode
-          ? 'text-amber-300 bg-amber-400/12 shadow-[0_10px_25px_rgba(251,191,36,0.16)] scale-[1.03]'
-          : 'text-orange-600 bg-orange-500/12 shadow-[0_10px_25px_rgba(249,115,22,0.16)] scale-[1.03]'
+          ? 'text-amber-200 bg-amber-400/15 shadow-[0_0_0_1px_rgba(251,191,36,0.18),0_0_18px_rgba(251,191,36,0.28)] scale-[1.03]'
+          : 'text-orange-600 bg-orange-500/12 shadow-[0_0_0_1px_rgba(249,115,22,0.16),0_0_18px_rgba(249,115,22,0.18)] scale-[1.03]'
         : isDarkMode
           ? 'text-stone-500 hover:text-amber-300 hover:bg-stone-800/70'
           : 'text-stone-400 hover:text-orange-500 hover:bg-stone-100/80'
