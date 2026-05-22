@@ -153,6 +153,22 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
   const topDeals = summary?.top_5_deals || [];
   const distribution = summary?.frequency_distribution || [];
   const coinWeightSummary = summary?.coin_weight_summary || [];
+  const lowestScatterWeight = useMemo(() => {
+    if (!scatterData.length) {
+      return null;
+    }
+
+    const weights = scatterData
+      .map((point) => Number(point?.weight))
+      .filter((weight) => Number.isFinite(weight) && weight > 0);
+
+    if (!weights.length) {
+      return null;
+    }
+
+    return Math.min(...weights);
+  }, [scatterData]);
+
   const performanceChartData = useMemo(
     () =>
       scatterData.map((point, index) => ({
@@ -193,7 +209,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
   // Compute a local, authoritative breakdown from API values to ensure UI consistency
   const computedBreakdown = useMemo(() => {
     const appliedRate = Number(selectedBrand?.breakdown?.appliedRate) || 0;
-    const displayWeight = getDisplayWeight();
+    const displayWeight = lowestScatterWeight || getDisplayWeight();
 
     const goldValue = Math.round((appliedRate * displayWeight) * 100) / 100;
 
@@ -222,7 +238,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
       gst,
       total,
     };
-  }, [selectedBrand, getDisplayWeight]);
+  }, [selectedBrand, getDisplayWeight, lowestScatterWeight]);
 
   // Derive the lowest making charge percentage (for display as percent)
   const mcPercentage = (computedBreakdown.makingPercent * 100).toFixed(1);
