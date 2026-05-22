@@ -153,21 +153,16 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
   const topDeals = summary?.top_5_deals || [];
   const distribution = summary?.frequency_distribution || [];
   const coinWeightSummary = summary?.coin_weight_summary || [];
-  const lowestScatterWeight = useMemo(() => {
-    if (!scatterData.length) {
-      return null;
+  const lowestMakingChargeWeights = useMemo(() => {
+    const values = summary?.lowestmakingchargeweights;
+    if (!Array.isArray(values)) {
+      return [];
     }
 
-    const weights = scatterData
-      .map((point) => Number(point?.weight))
-      .filter((weight) => Number.isFinite(weight) && weight > 0);
-
-    if (!weights.length) {
-      return null;
-    }
-
-    return Math.min(...weights);
-  }, [scatterData]);
+    return values
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value) && value > 0);
+  }, [summary?.lowestmakingchargeweights]);
 
   const performanceChartData = useMemo(
     () =>
@@ -179,6 +174,27 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
       })),
     [scatterData]
   );
+
+  const weightAtLowestMakingCharge = useMemo(() => {
+    if (lowestMakingChargeWeights.length) {
+      return Math.min(...lowestMakingChargeWeights);
+    }
+
+    if (!performanceChartData.length) {
+      return null;
+    }
+
+    const validPoints = performanceChartData.filter((point) => Number.isFinite(point.weight) && Number.isFinite(point.mc));
+
+    if (!validPoints.length) {
+      return null;
+    }
+
+    const lowestMc = Math.min(...validPoints.map((point) => point.mc));
+    const lowestMcPoint = validPoints.find((point) => point.mc === lowestMc);
+
+    return lowestMcPoint?.weight ?? null;
+  }, [lowestMakingChargeWeights, performanceChartData]);
 
   const performanceBounds = useMemo(() => {
     if (!performanceChartData.length) {
@@ -209,7 +225,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
   // Compute a local, authoritative breakdown from API values to ensure UI consistency
   const computedBreakdown = useMemo(() => {
     const appliedRate = Number(selectedBrand?.breakdown?.appliedRate) || 0;
-    const displayWeight = lowestScatterWeight || getDisplayWeight();
+    const displayWeight = weightAtLowestMakingCharge || getDisplayWeight();
 
     const goldValue = Math.round((appliedRate * displayWeight) * 100) / 100;
 
@@ -238,7 +254,7 @@ export const BrandModal = ({ selectedBrand, isDarkMode, onClose, queryContext })
       gst,
       total,
     };
-  }, [selectedBrand, getDisplayWeight, lowestScatterWeight]);
+  }, [selectedBrand, getDisplayWeight, weightAtLowestMakingCharge]);
 
   // Derive the lowest making charge percentage (for display as percent)
   const mcPercentage = (computedBreakdown.makingPercent * 100).toFixed(1);

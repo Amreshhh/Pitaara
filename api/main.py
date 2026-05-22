@@ -1040,6 +1040,15 @@ async def get_brand_summary(req: BrandSummaryRequest):
             bucket_map[bucket]["count"] += 1
             bucket_map[bucket]["weights"].append(point["weight"])
 
+        lowestmakingchargeweights = []
+        if points:
+            lowest_mc = min(point["mc"] for point in points)
+            lowestmakingchargeweights = sorted(
+                round(point["weight"], 2)
+                for point in points
+                if point["mc"] == lowest_mc
+            )
+
         frequency_distribution = []
         for bucket in sorted(bucket_map.keys()):
             sample_weights = sorted(bucket_map[bucket]["weights"])[:3]
@@ -1078,6 +1087,7 @@ async def get_brand_summary(req: BrandSummaryRequest):
             },
             "total_items": len(points),
             "scatter_points": points,
+            "lowestmakingchargeweights": lowestmakingchargeweights,
             "frequency_distribution": frequency_distribution,
             "coin_weight_summary": coin_weight_summary,
             "top_5_deals": top_5
